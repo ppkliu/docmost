@@ -111,6 +111,22 @@ Use only if the prod host has enough CPU/RAM to run `pnpm build` (the server bui
 
 ---
 
+## Local: rebuild & refresh the running stack (apply code changes)
+Your repo compose uses `build: .`, so after pulling/editing code:
+```bash
+docker compose up -d --build          # rebuild app image + recreate containers
+docker compose logs -f docmost        # migrations auto-apply on boot
+```
+Data is safe: `db`/`valkey`/storage are bind-mounts under `./data` — plain `docker compose down`
+keeps them; never use `down -v`. Only the `docmost` service changes on a code rebuild. If the
+in-image `pnpm build` is OOM-killed, raise Docker's memory limit.
+
+Env-only changes (no rebuild needed) take effect on an app restart, because `window.CONFIG` is
+injected from env at server boot:
+```bash
+docker compose up -d docmost          # reloads .env (or: docker compose restart docmost)
+```
+
 ## After first start
 1. Open `APP_URL` → the Docmost **setup page** → create the first workspace + admin account.
 2. Put a reverse proxy (Caddy/Nginx/Traefik) in front for **HTTPS** and point it at `APPPORT`.
