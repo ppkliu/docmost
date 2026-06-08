@@ -70,7 +70,7 @@ Legend: ✅ done & verified · 🟡 partial · ⬜ todo
 
 ## 10. EE features → OSS program (plan: [docmost-ee-features-oss-plan.md](./docmost-ee-features-oss-plan.md))
 - ✅ E0 open AI settings by default: `Feature.AI` granted for self-hosted (`SELF_HOSTED_OSS_FEATURES`)
-- 🟡 E1 Resolve comments (S): `comments/resolve` endpoint + service + `comment:resolution` unlock — *in progress*
+- ✅ E1 Resolve comments (S): `POST /api/comments/resolve` + `CommentService.resolveComment` + `comment:resolution` unlock; 2 unit tests, build+lint green. Manual: [docs/manuals/E1-resolve-comments.md](../manuals/E1-resolve-comments.md)
 - ⬜ E2 DOCX import (S–M): OSS `processDocx` via `mammoth` → `processHTML`; unlock `import:docx`
 - ⬜ E3 Audit logs (M): OSS `AuditService` recording into `audit` + `POST /audit/logs` + unlock `audit:logs`
 - ⬜ E4 Templates (M): OSS `TemplateModule` over `templates`/`TemplateRepo`; unlock `templates`
