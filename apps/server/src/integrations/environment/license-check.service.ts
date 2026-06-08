@@ -15,6 +15,7 @@ const SELF_HOSTED_OSS_FEATURES: string[] = [
   Feature.API_KEYS,
   Feature.MCP,
   Feature.AI,
+  Feature.COMMENT_RESOLUTION,
 ];
 
 @Injectable()
