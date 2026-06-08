@@ -7,7 +7,15 @@ import { Feature } from '../../common/features';
 // They are granted regardless of an EE license so the admin UI toggles are
 // usable and the matching settings can be enabled. EE-only features (SCIM,
 // security settings, etc.) are intentionally excluded and remain license-gated.
-const SELF_HOSTED_OSS_FEATURES: string[] = [Feature.API_KEYS, Feature.MCP];
+//
+// Feature.AI surfaces the AI settings UI. Its generative (Ask AI) and search
+// (AI Answers / RAG) backends are implemented; AI Chat is the remaining gap
+// (no /api/ai/chats backend yet — see the AI Chat design / Workstream B3).
+const SELF_HOSTED_OSS_FEATURES: string[] = [
+  Feature.API_KEYS,
+  Feature.MCP,
+  Feature.AI,
+];
 
 @Injectable()
 export class LicenseCheckService {
