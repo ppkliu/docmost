@@ -68,6 +68,17 @@ Legend: ✅ done & verified · 🟡 partial · ⬜ todo
 ## 9. Documentation
 - ✅ T8.1 **User manual** (使用說明書): [docs/USER-MANUAL.md](../USER-MANUAL.md) — A3 a–h, API keys, REST + MCP usage, skill bundle/recipes, bulk upload UI, status page, and a live smoke-test checklist
 
+## 10. EE features → OSS program (plan: [docmost-ee-features-oss-plan.md](./docmost-ee-features-oss-plan.md))
+- ✅ E0 open AI settings by default: `Feature.AI` granted for self-hosted (`SELF_HOSTED_OSS_FEATURES`)
+- 🟡 E1 Resolve comments (S): `comments/resolve` endpoint + service + `comment:resolution` unlock — *in progress*
+- ⬜ E2 DOCX import (S–M): OSS `processDocx` via `mammoth` → `processHTML`; unlock `import:docx`
+- ⬜ E3 Audit logs (M): OSS `AuditService` recording into `audit` + `POST /audit/logs` + unlock `audit:logs`
+- ⬜ E4 Templates (M): OSS `TemplateModule` over `templates`/`TemplateRepo`; unlock `templates`
+- ⬜ E5 Attachment full-text (M) + PDF import (M): shared text-extraction layer; unlock `attachment:indexing`/`import:pdf`
+- ⬜ E6 Page verification & approval (M): OSS module over `page_verifications`; unlock `page:verification`
+- ⬜ E7 Page-level permissions (L): OSS module + CASL integration over `page_permissions`; unlock `page:permissions`
+- ⬜ E8 AI Chat / Assistant (L): `/api/ai/chats/*` + tool-calling SSE loop over `ai_chats`; (B3)
+
 ## Execution order
-3 ✅ → 1 ✅ → 2 ✅ → **4 (AI B1)** → 6 (entitlement) → 5 (AI B2) → 2.1/2.2 (MCP extras) → 7 (gateway) → D1→D2→D3→D4→D5→D6 → 8 (manual).
+3 ✅ → 1 ✅ → 2 ✅ → **4 (AI B1)** → 6 (entitlement) → 5 (AI B2) → 2.1/2.2 (MCP extras) → 7 (gateway) → D1→D2→D3→D4→D5→D6 → 8 (manual) → **E0 ✅ → E1→E2→E3→E4→E5→E6→E7→E8** (EE→OSS).
 Workstream D depends only on C0 ✅ (API-key) + bulk-import ✅; it is **independent of the server AI module (B)** because the agent brings its own LLM.
