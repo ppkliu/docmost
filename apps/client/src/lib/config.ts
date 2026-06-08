@@ -71,13 +71,15 @@ export function getFileUrl(src: string) {
 }
 
 export function getFileUploadSizeLimit() {
-  const limit = getConfigValue("FILE_UPLOAD_SIZE_LIMIT", "50mb");
-  return bytes(limit);
+  // `||` so a blank window.CONFIG value falls back to the default; bytes("")
+  // returns null, which would make every upload "exceed" a 0-byte limit.
+  const limit = getConfigValue("FILE_UPLOAD_SIZE_LIMIT") || "50mb";
+  return bytes(limit) ?? bytes("50mb");
 }
 
 export function getFileImportSizeLimit() {
-  const limit = getConfigValue("FILE_IMPORT_SIZE_LIMIT", "200mb");
-  return bytes(limit);
+  const limit = getConfigValue("FILE_IMPORT_SIZE_LIMIT") || "200mb";
+  return bytes(limit) ?? bytes("200mb");
 }
 
 export function getDrawioUrl() {

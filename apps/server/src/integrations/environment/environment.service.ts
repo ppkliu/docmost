@@ -84,11 +84,13 @@ export class EnvironmentService {
   }
 
   getFileUploadSizeLimit(): string {
-    return this.configService.get<string>('FILE_UPLOAD_SIZE_LIMIT', '50mb');
+    // `||` so an empty env value (FILE_UPLOAD_SIZE_LIMIT=) falls back to the
+    // default instead of injecting "" (which parses to a 0-byte limit).
+    return this.configService.get<string>('FILE_UPLOAD_SIZE_LIMIT') || '50mb';
   }
 
   getFileImportSizeLimit(): string {
-    return this.configService.get<string>('FILE_IMPORT_SIZE_LIMIT', '200mb');
+    return this.configService.get<string>('FILE_IMPORT_SIZE_LIMIT') || '200mb';
   }
 
   getAwsS3AccessKeyId(): string {
