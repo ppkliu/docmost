@@ -77,7 +77,8 @@ Legend: ✅ done & verified · 🟡 partial · ⬜ todo
 - ⬜ E5 Attachment full-text (M) + PDF import (M): shared text-extraction layer; unlock `attachment:indexing`/`import:pdf`
 - ⬜ E6 Page verification & approval (M): OSS module over `page_verifications`; unlock `page:verification`
 - ⬜ E7 Page-level permissions (L): OSS module + CASL integration over `page_permissions`; unlock `page:permissions`
-- ⬜ E8 AI Chat / Assistant (L): `/api/ai/chats/*` + tool-calling SSE loop over `ai_chats`; (B3)
+- ⬜ E9 AI provider settings in UI (set base URL/key/model): workspace `settings.ai.provider` resolved over env + `POST /api/ai/settings` + masked `GET /api/ai/config` + settings form. Plan: [docmost-ai-provider-ui-design.md](./docmost-ai-provider-ui-design.md). *(today config is env-only; no UI for base URL)*
+- ⬜ E8 AI Chat / Assistant (L): `/api/ai/chats/*` + tool-calling SSE loop over `ai_chats` (B3); uses the E9 resolved provider config
 
 ## Execution order
 3 ✅ → 1 ✅ → 2 ✅ → **4 (AI B1)** → 6 (entitlement) → 5 (AI B2) → 2.1/2.2 (MCP extras) → 7 (gateway) → D1→D2→D3→D4→D5→D6 → 8 (manual) → **E0 ✅ → E1→E2→E3→E4→E5→E6→E7→E8** (EE→OSS).
