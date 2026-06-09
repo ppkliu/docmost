@@ -31,6 +31,7 @@ import { ApiKeyRepo } from '@docmost/db/repos/api-key/api-key.repo';
 import { OrganizeRepo } from '@docmost/db/repos/organize/organize.repo';
 import { DedupRepo } from '@docmost/db/repos/dedup/dedup.repo';
 import { EmbeddingRepo } from '@docmost/db/repos/embedding/embedding.repo';
+import { AiChatRepo } from '@docmost/db/repos/ai-chat/ai-chat.repo';
 import { PageListener } from '@docmost/db/listeners/page.listener';
 import { PostgresJSDialect } from 'kysely-postgres-js';
 import * as postgres from 'postgres';
@@ -100,6 +101,7 @@ import { normalizePostgresUrl } from '../common/helpers';
     OrganizeRepo,
     DedupRepo,
     EmbeddingRepo,
+    AiChatRepo,
     PageListener,
   ],
   exports: [
@@ -129,6 +131,7 @@ import { normalizePostgresUrl } from '../common/helpers';
     OrganizeRepo,
     DedupRepo,
     EmbeddingRepo,
+    AiChatRepo,
   ],
 })
 export class DatabaseModule implements OnApplicationBootstrap {

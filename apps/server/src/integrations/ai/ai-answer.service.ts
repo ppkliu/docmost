@@ -102,6 +102,51 @@ export class AiAnswerService {
     return { sources, context };
   }
 
+  /**
+   * Loads the text of explicitly referenced pages (chat @mentions / current
+   * page), scoped to the caller's accessible spaces, as grounding context.
+   * Each page is truncated so a few attachments cannot blow the prompt budget.
+   */
+  async loadPagesContext(
+    pageIds: string[],
+    userId: string,
+    perPageChars = 4000,
+  ): Promise<{
+    context: string;
+    sources: { pageId: string; title: string | null; slugId: string }[];
+  }> {
+    const ids = [...new Set(pageIds)].filter(Boolean);
+    if (ids.length === 0) return { context: '', sources: [] };
+
+    const spaceIds = await this.spaceMemberRepo.getUserSpaceIds(userId);
+    if (spaceIds.length === 0) return { context: '', sources: [] };
+
+    const pages = await this.db
+      .selectFrom('pages')
+      .select(['id', 'title', 'slugId', 'textContent'])
+      .where('id', 'in', ids)
+      .where('spaceId', 'in', spaceIds)
+      .where('deletedAt', 'is', null)
+      .execute();
+    if (pages.length === 0) return { context: '', sources: [] };
+
+    const context = pages
+      .map((p, i) => {
+        const body = (p.textContent ?? '').slice(0, perPageChars).trim();
+        return `[${i + 1}] ${p.title ?? 'Untitled'}\n${body}`;
+      })
+      .join('\n\n');
+
+    return {
+      context,
+      sources: pages.map((p) => ({
+        pageId: p.id,
+        title: p.title,
+        slugId: p.slugId,
+      })),
+    };
+  }
+
   async *streamAnswer(query: string, context: string): AsyncGenerator<string> {
     const model = this.aiProviderService.completionModel();
     const system =

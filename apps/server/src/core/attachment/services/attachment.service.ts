@@ -244,7 +244,14 @@ export class AttachmentService {
     try {
       await this.storageService.upload(filePath, fileContent);
     } catch (err) {
-      this.logger.error('Error uploading file to drive:', err);
+      // surface the real cause (e.g. EACCES on the storage dir, S3 errors);
+      // NestJS Logger.error treats the 2nd arg as the stack, so embed the
+      // message in the log string to avoid swallowing it.
+      const e = err as Error & { code?: string };
+      this.logger.error(
+        `Error uploading file to drive (path="${filePath}"): ${e?.code ? `[${e.code}] ` : ''}${e?.message}`,
+        e?.stack,
+      );
       throw new BadRequestException('Error uploading file to drive');
     }
   }
@@ -258,6 +265,7 @@ export class AttachmentService {
     workspaceId: string;
     pageId?: string;
     spaceId?: string;
+    aiChatId?: string;
     trx?: KyselyTransaction;
   }): Promise<Attachment> {
     const {
@@ -269,6 +277,7 @@ export class AttachmentService {
       workspaceId,
       pageId,
       spaceId,
+      aiChatId,
       trx,
     } = opts;
     return this.attachmentRepo.insertAttachment(
@@ -284,9 +293,46 @@ export class AttachmentService {
         workspaceId: workspaceId,
         pageId: pageId,
         spaceId: spaceId,
+        aiChatId: aiChatId,
       },
       trx,
     );
+  }
+
+  /**
+   * Uploads a file attached to an AI chat. `aiChatId` is optional because the
+   * client may upload before the first message creates the chat; in that case
+   * the row stays unlinked until `send` claims it via attachmentIds.
+   */
+  async uploadChatFile(opts: {
+    filePromise: Promise<MultipartFile>;
+    userId: string;
+    workspaceId: string;
+    aiChatId?: string;
+  }): Promise<Attachment> {
+    const { filePromise, userId, workspaceId, aiChatId } = opts;
+    const preparedFile: PreparedFile = await prepareFile(filePromise, {
+      skipBuffer: true,
+    });
+
+    const attachmentId = uuid7();
+    const filePath = `${getAttachmentFolderPath(AttachmentType.Chat, workspaceId)}/${attachmentId}/${preparedFile.fileName}`;
+
+    const { stream, getBytesRead } = createByteCountingStream(
+      preparedFile.multiPartFile.file,
+    );
+    await this.uploadToDrive(filePath, stream);
+    preparedFile.fileSize = getBytesRead();
+
+    return this.saveAttachment({
+      attachmentId,
+      preparedFile,
+      filePath,
+      type: AttachmentType.Chat,
+      userId,
+      workspaceId,
+      aiChatId,
+    });
   }
 
   async handleDeleteAiChatAttachments(aiChatId: string) {

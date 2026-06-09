@@ -74,6 +74,30 @@ export class AttachmentRepo {
       .executeTakeFirst();
   }
 
+  /**
+   * Links freshly uploaded chat attachments to a chat at send time. Scoped to
+   * the uploader + workspace, and only claims still-unlinked rows, so a user
+   * cannot attach another user's (or chat's) files.
+   */
+  async linkAttachmentsToAiChat(
+    attachmentIds: string[],
+    aiChatId: string,
+    userId: string,
+    workspaceId: string,
+    trx?: KyselyTransaction,
+  ): Promise<void> {
+    if (attachmentIds.length === 0) return;
+    const db = dbOrTx(this.db, trx);
+    await db
+      .updateTable('attachments')
+      .set({ aiChatId, updatedAt: new Date() })
+      .where('id', 'in', attachmentIds)
+      .where('creatorId', '=', userId)
+      .where('workspaceId', '=', workspaceId)
+      .where('aiChatId', 'is', null)
+      .execute();
+  }
+
   async findBySpaceId(
     spaceId: string,
     opts?: {
