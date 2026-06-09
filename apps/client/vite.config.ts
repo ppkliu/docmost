@@ -16,7 +16,9 @@ export default defineConfig(({ mode }) => {
     BILLING_TRIAL_DAYS,
     POSTHOG_HOST,
     POSTHOG_KEY,
+    SERVER_PROXY_URL,
   } = loadEnv(mode, envPath, "");
+  const proxyTarget = SERVER_PROXY_URL || APP_URL;
 
   return {
     define: {
@@ -57,16 +59,16 @@ export default defineConfig(({ mode }) => {
     server: {
       proxy: {
         "/api": {
-          target: APP_URL,
+          target: proxyTarget,
           changeOrigin: false,
         },
         "/socket.io": {
-          target: APP_URL,
+          target: proxyTarget,
           ws: true,
           rewriteWsOrigin: true,
         },
         "/collab": {
-          target: APP_URL,
+          target: proxyTarget,
           ws: true,
           rewriteWsOrigin: true,
         },

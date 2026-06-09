@@ -7,9 +7,14 @@ FROM base AS builder
 
 WORKDIR /app
 
-COPY . .
-
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml nx.json .npmrc ./
+COPY patches ./patches
+COPY apps/server/package.json ./apps/server/package.json
+COPY apps/client/package.json ./apps/client/package.json
+COPY packages/editor-ext/package.json ./packages/editor-ext/package.json
 RUN pnpm install --frozen-lockfile
+
+COPY . .
 RUN pnpm build
 
 FROM base AS installer

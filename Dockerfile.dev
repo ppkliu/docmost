@@ -1,0 +1,21 @@
+FROM node:22-slim
+LABEL org.opencontainers.image.source="https://github.com/docmost/docmost"
+
+RUN npm install -g pnpm@10.4.0
+
+WORKDIR /app
+
+# Install dependencies from manifests first. This layer is reused until package
+# manifests or the lockfile change.
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml nx.json .npmrc ./
+COPY patches ./patches
+COPY apps/server/package.json ./apps/server/package.json
+COPY apps/client/package.json ./apps/client/package.json
+COPY packages/editor-ext/package.json ./packages/editor-ext/package.json
+RUN pnpm install --frozen-lockfile
+
+COPY . .
+
+EXPOSE 3000 5173
+
+CMD ["pnpm", "run", "dev:docker"]

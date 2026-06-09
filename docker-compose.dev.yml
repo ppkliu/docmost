@@ -1,0 +1,57 @@
+name: docmost-dev
+
+services:
+  docmost-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    depends_on:
+      - db
+      - valkey
+    env_file:
+      - .env
+    environment:
+      HOST: 0.0.0.0
+      PORT: 3000
+      SERVER_PROXY_URL: http://127.0.0.1:3000
+      CHOKIDAR_USEPOLLING: "true"
+      WATCHPACK_POLLING: "true"
+    ports:
+      - ${APPPORT:-3010}:3000
+      - ${CLIENT_DEV_PORT:-5173}:5173
+    volumes:
+      - .:/app
+      - docmost_dev_node_modules:/app/node_modules
+      - docmost_dev_client_node_modules:/app/apps/client/node_modules
+      - docmost_dev_server_node_modules:/app/apps/server/node_modules
+      - docmost_dev_editor_ext_node_modules:/app/packages/editor-ext/node_modules
+      - docmost_dev_nx_cache:/app/.nx
+    restart: unless-stopped
+
+  db:
+    image: pgvector/pgvector:0.8.2-pg18-trixie
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - ${DEV_POSTGRES_HOST_PORT:-25432}:${POSTGRES_PORT:-5432}
+    restart: unless-stopped
+    volumes:
+      - ./data/db:/var/lib/postgresql
+
+  valkey:
+    image: valkey/valkey:9.1-alpine3.23
+    command: ["valkey-server", "--appendonly", "yes", "--maxmemory-policy", "noeviction"]
+    ports:
+      - ${DEV_REDIS_HOST_PORT:-26379}:6379
+    restart: unless-stopped
+    volumes:
+      - ./data/valkey:/data
+
+volumes:
+  docmost_dev_node_modules:
+  docmost_dev_client_node_modules:
+  docmost_dev_server_node_modules:
+  docmost_dev_editor_ext_node_modules:
+  docmost_dev_nx_cache:
