@@ -78,8 +78,8 @@ Legend: ✅ done & verified · 🟡 partial · ⬜ todo
 - ⬜ E6 Page verification & approval (M): OSS module over `page_verifications`; unlock `page:verification`
 - ⬜ E7 Page-level permissions (L): OSS module + CASL integration over `page_permissions`; unlock `page:permissions`
 - ⬜ E9 AI provider settings in UI (set base URL/key/model): workspace `settings.ai.provider` resolved over env + `POST /api/ai/settings` + masked `GET /api/ai/config` + settings form. Plan: [docmost-ai-provider-ui-design.md](./docmost-ai-provider-ui-design.md). *(today config is env-only; no UI for base URL)*
-- ⬜ E8 AI Chat / Assistant (L): `/api/ai/chats/*` + tool-calling SSE loop over `ai_chats` (B3); uses the E9 resolved provider config
+- ✅ E8 AI Chat / Assistant (L): `/api/ai/chats/*` + tool-calling SSE loop over `ai_chats`/`ai_chat_messages` (B3.1 CRUD, B3.2 streamed send + persistence + auto-title, B3.3 `search_workspace` + page-context grounding + jsonb tool-call persistence, B3.4 chat attachment upload/link/cleanup). Manual: [docs/manuals/E8-ai-chat.md](../manuals/E8-ai-chat.md). Verification: server build + lint + 8 AI chat unit tests green. Uses the current env-backed `AiProviderService`; E9 can later swap in UI-resolved provider config.
 
 ## Execution order
-3 ✅ → 1 ✅ → 2 ✅ → **4 (AI B1)** → 6 (entitlement) → 5 (AI B2) → 2.1/2.2 (MCP extras) → 7 (gateway) → D1→D2→D3→D4→D5→D6 → 8 (manual) → **E0 ✅ → E1→E2→E3→E4→E5→E6→E7→E8** (EE→OSS).
+3 ✅ → 1 ✅ → 2 ✅ → **4 (AI B1)** → 6 (entitlement) → 5 (AI B2) → 2.1/2.2 (MCP extras) → 7 (gateway) → D1→D2→D3→D4→D5→D6 → 8 (manual) → **E0 ✅ → E1 ✅ → E8 ✅ → E2→E3→E4→E5→E6→E7** (EE→OSS).
 Workstream D depends only on C0 ✅ (API-key) + bulk-import ✅; it is **independent of the server AI module (B)** because the agent brings its own LLM.

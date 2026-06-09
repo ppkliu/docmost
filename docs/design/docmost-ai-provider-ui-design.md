@@ -75,14 +75,15 @@ New section in `ai-settings.tsx` (admin): driver `Select`
 - **P2 (frontend):** the settings form + service + badge.
 - **P3:** optional encrypt `apiKey` at rest; per-workspace model validation.
 
-## 5. AI Chat (E8) — continue
+## 5. AI Chat (E8) — implemented
 Separate workstream (see [EE plan](./docmost-ee-features-oss-plan.md) E8): `/api/ai/chats/*`
 (create/list/info/update/delete/search/upload + `send` SSE tool-loop over `ai_chats`/
 `ai_chat_messages`) matching the client contract
-([`ai-chat.types.ts`](../../apps/client/src/ee/ai-chat/types/ai-chat.types.ts)). It will use the
-**same resolved provider config** from §3.2 for its `chatModel()`. Build after P1 so chat inherits
-the UI-configured provider. Phases: B3.1 chat CRUD → B3.2 streamed send → B3.3 tool-calling
-(reuse MCP tools + RAG) → B3.4 attachment upload.
+([`ai-chat.types.ts`](../../apps/client/src/ee/ai-chat/types/ai-chat.types.ts)). E8 is now
+implemented against the existing env-backed `AiProviderService`: B3.1 chat CRUD, B3.2 streamed
+send with message persistence + auto-title, B3.3 `search_workspace` tool-calling plus RAG page
+context and jsonb tool-call persistence, and B3.4 attachment upload/link/cleanup. When P1 ships,
+chat should inherit the UI-resolved provider through the same provider service.
 
 ## 6. Verification
 - Unit: `resolveConfig` (workspace overrides env, partial falls back); `/ai/config` never leaks

@@ -84,6 +84,7 @@ unlock spec: [`docmost-ai-features-design.md`](./docmost-ai-features-design.md) 
   `mentionedPageIds`/`contextPageId`. SSE events per the contract: `chat_created`, `content`,
   `tool_call`, `tool_result`, `done`, `error`. Phases: B3.1 chat CRUD → B3.2 plain streamed
   send → B3.3 tool-calling → B3.4 attachment upload.
+- Status: **implemented in OSS**. See [E8 usage/testing manual](../manuals/E8-ai-chat.md).
 
 ## 3. Recommended execution order (value × readiness)
 
