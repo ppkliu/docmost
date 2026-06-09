@@ -18,12 +18,12 @@ Copy [`.env.example`](../.env.example) → `.env` on the production host and set
 essentials:
 
 ```dotenv
-APPPORT=3010                                  # host port the app is published on
+APP_HOST_PORT=3010                            # host port; app container listens on 3000
 APP_URL=https://wiki.yourdomain.com           # the real public URL (used for links + statusUrl)
 APP_SECRET=<openssl rand -hex 32>             # 32+ chars
 POSTGRES_USER=docmost
 POSTGRES_DB=docmost
-POSTGRES_PORT=5432
+POSTGRES_HOST_PORT=25432                      # host port; db container listens on 5432
 POSTGRES_PASSWORD=<strong password>
 # inside compose, hosts are the SERVICE NAMES, not localhost:
 DATABASE_URL="postgresql://docmost:<password>@db:5432/docmost?schema=public"
@@ -73,7 +73,7 @@ services:
     container_name: docmost
     depends_on: [db, valkey]
     env_file: [.env]
-    ports: ["${APPPORT}:3000"]
+    ports: ["${APP_HOST_PORT}:3000"]
     restart: unless-stopped
     volumes: ["./data/docmost:/app/data/storage"]
   db:
@@ -129,7 +129,7 @@ docker compose up -d docmost          # reloads .env (or: docker compose restart
 
 ## After first start
 1. Open `APP_URL` → the Docmost **setup page** → create the first workspace + admin account.
-2. Put a reverse proxy (Caddy/Nginx/Traefik) in front for **HTTPS** and point it at `APPPORT`.
+2. Put a reverse proxy (Caddy/Nginx/Traefik) in front for **HTTPS** and point it at `APP_HOST_PORT`.
    Set `APP_URL` to the `https://` domain so links, the collab websocket, and organize `statusUrl`
    are correct.
 3. Persistence lives in the bind-mounts: `./data/docmost` (uploaded files, when
@@ -148,6 +148,6 @@ Migrations are forward-only and run on boot; take a `./data/db` backup before up
 - Confirm pgvector is active for AI Answers: the `db` image is `pgvector/pgvector` and the
   `page_embeddings` migration runs `CREATE EXTENSION IF NOT EXISTS vector`.
 - Health: `docker compose logs docmost` should show migrations applied and the server listening on
-  3000; `curl http://localhost:${APPPORT}` returns the app.
+  3000; `curl http://localhost:${APP_HOST_PORT}` returns the app.
 - `STORAGE_DRIVER=s3`/`azure` is recommended for multi-node or durable production storage instead
   of the local bind-mount.
