@@ -37,9 +37,7 @@ function makeAnswer(overrides: Partial<Record<string, any>> = {}) {
   return {
     isConfigured: jest.fn().mockReturnValue(false),
     retrieve: jest.fn(),
-    loadPagesContext: jest
-      .fn()
-      .mockResolvedValue({ context: '', sources: [] }),
+    loadPagesContext: jest.fn().mockResolvedValue({ context: '', sources: [] }),
     ...overrides,
   };
 }
@@ -129,7 +127,10 @@ describe('AiChatService', () => {
     it('throws Forbidden when the workspace AI chat toggle is off', () => {
       const svc = makeService();
       expect(() =>
-        svc.assertEnabled({ id: 'w1', settings: { ai: { chat: false } } } as any),
+        svc.assertEnabled({
+          id: 'w1',
+          settings: { ai: { chat: false } },
+        } as any),
       ).toThrow(ForbiddenException);
     });
   });
@@ -271,6 +272,63 @@ describe('AiChatService', () => {
       );
     });
 
+    it('merges referenced page context into the leading system prompt', async () => {
+      mockFullStream([
+        { type: 'text-delta', text: 'Using the page context.' },
+        {
+          type: 'finish',
+          totalUsage: { inputTokens: 5, outputTokens: 5, totalTokens: 10 },
+        },
+      ]);
+
+      const repo = makeRepo({
+        findChatById: jest.fn().mockResolvedValue({ id: 'c1', title: 't' }),
+        insertMessage: jest
+          .fn()
+          .mockResolvedValueOnce({ id: 'm-user' })
+          .mockResolvedValueOnce({ id: 'm-assistant' }),
+        findMessages: jest
+          .fn()
+          .mockResolvedValue([{ role: 'user', content: 'Explain this page' }]),
+      });
+      const answer = makeAnswer({
+        loadPagesContext: jest.fn().mockResolvedValue({
+          context: 'Page: Roadmap\nThe roadmap says ship AI chat.',
+          sources: [],
+        }),
+      });
+      const svc = makeService(repo, makeProvider(), answer);
+
+      await drain(
+        svc.streamSend(
+          {
+            chatId: 'c1',
+            content: 'Explain this page',
+            contextPageId: 'p1',
+          } as any,
+          user,
+          workspace,
+        ),
+      );
+
+      expect(streamText).toHaveBeenCalledWith(
+        expect.objectContaining({
+          system: expect.stringContaining(
+            'The user referenced these wiki pages as context',
+          ),
+          messages: [
+            expect.objectContaining({
+              role: 'user',
+              content: 'Explain this page',
+            }),
+          ],
+        }),
+      );
+      expect(
+        (streamText as jest.Mock).mock.calls[0][0].messages,
+      ).not.toContainEqual(expect.objectContaining({ role: 'system' }));
+    });
+
     it('surfaces a retryable error event when the model call fails', async () => {
       (streamText as jest.Mock).mockImplementation(() => {
         throw new Error('upstream 500');
@@ -283,11 +341,7 @@ describe('AiChatService', () => {
       const svc = makeService(repo);
 
       const events = await drain(
-        svc.streamSend(
-          { chatId: 'c1', content: 'hi' } as any,
-          user,
-          workspace,
-        ),
+        svc.streamSend({ chatId: 'c1', content: 'hi' } as any, user, workspace),
       );
 
       expect(events[events.length - 1]).toEqual(

@@ -30,7 +30,12 @@ import { SendChatDto } from './dto/ai-chat.dto';
 export type AiChatStreamEvent =
   | { type: 'chat_created'; chatId: string }
   | { type: 'content'; text: string }
-  | { type: 'tool_call'; id: string; name: string; args: Record<string, unknown> }
+  | {
+      type: 'tool_call';
+      id: string;
+      name: string;
+      args: Record<string, unknown>;
+    }
   | { type: 'tool_result'; id: string; result: unknown }
   | { type: 'done'; messageId: string; usage?: Record<string, number> }
   | { type: 'error'; message: string; code?: string; retryable?: boolean };
@@ -106,10 +111,7 @@ export class AiChatService {
     workspace: Workspace,
   ): Promise<void> {
     const chat = await this.requireChat(chatId, user, workspace);
-    await this.aiChatRepo.updateChat(
-      { title, updatedAt: new Date() },
-      chat.id,
-    );
+    await this.aiChatRepo.updateChat({ title, updatedAt: new Date() }, chat.id);
   }
 
   async searchChats(
@@ -183,10 +185,8 @@ export class AiChatService {
     }
 
     const history = await this.aiChatRepo.findMessages(chat.id);
-    const messages = [
-      ...(await this.buildContextMessages(dto, user)),
-      ...this.toModelMessages(history),
-    ];
+    const system = await this.buildSystemPrompt(dto, user);
+    const messages = this.toModelMessages(history);
     const tools = this.buildTools(user, workspace);
 
     const toolCalls: Array<{
@@ -201,7 +201,7 @@ export class AiChatService {
     try {
       const result = streamText({
         model: this.aiProviderService.completionModel(),
-        system: CHAT_SYSTEM_PROMPT,
+        system,
         messages,
         tools: Object.keys(tools).length > 0 ? tools : undefined,
         // Bound the agentic loop so a misbehaving model cannot spin forever.
@@ -311,29 +311,24 @@ export class AiChatService {
     return tools;
   }
 
-  /** Grounding context from explicitly referenced pages (@mentions / current page). */
-  private async buildContextMessages(
+  /** Main system prompt plus grounding context from @mentions / current page. */
+  private async buildSystemPrompt(
     dto: SendChatDto,
     user: User,
-  ): Promise<ModelMessage[]> {
+  ): Promise<string> {
     const pageIds = [
       ...(dto.mentionedPageIds ?? []),
       ...(dto.contextPageId ? [dto.contextPageId] : []),
     ];
-    if (pageIds.length === 0) return [];
+    if (pageIds.length === 0) return CHAT_SYSTEM_PROMPT;
 
     const { context } = await this.aiAnswerService.loadPagesContext(
       pageIds,
       user.id,
     );
-    if (!context) return [];
+    if (!context) return CHAT_SYSTEM_PROMPT;
 
-    return [
-      {
-        role: 'system',
-        content: `The user referenced these wiki pages as context:\n\n${context}`,
-      },
-    ];
+    return `${CHAT_SYSTEM_PROMPT}\n\nThe user referenced these wiki pages as context:\n\n${context}`;
   }
 
   private errorMessage(error: unknown): string {
