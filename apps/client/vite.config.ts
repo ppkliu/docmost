@@ -18,12 +18,14 @@ export default defineConfig(({ mode }) => {
     POSTHOG_KEY,
     SERVER_PROXY_URL,
   } = loadEnv(mode, envPath, "");
-  const proxyTarget = SERVER_PROXY_URL || APP_URL;
+  const appUrl = process.env.APP_URL || APP_URL;
+  const proxyTarget =
+    process.env.SERVER_PROXY_URL || SERVER_PROXY_URL || appUrl;
 
   return {
     define: {
       "process.env": {
-        APP_URL,
+        APP_URL: appUrl,
         FILE_UPLOAD_SIZE_LIMIT,
         FILE_IMPORT_SIZE_LIMIT,
         DRAWIO_URL,

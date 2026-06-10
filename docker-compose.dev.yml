@@ -1,5 +1,8 @@
 name: docmost-dev
 
+# Use with:
+#   docker compose --env-file .env.dev -f docker-compose.dev.yml up
+# because compose port interpolation reads --env-file, not service env_file.
 services:
   docmost-dev:
     build:
@@ -9,18 +12,20 @@ services:
       - db
       - valkey
     env_file:
-      - .env
+      - .env.dev
     environment:
       HOST: 0.0.0.0
       PORT: 3000
+      APP_URL: http://127.0.0.1:${DEV_APP_HOST_PORT:-3011}
       SERVER_PROXY_URL: http://127.0.0.1:3000
       CHOKIDAR_USEPOLLING: "true"
       WATCHPACK_POLLING: "true"
     ports:
-      - ${APP_HOST_PORT:-3010}:3000
-      - ${CLIENT_DEV_PORT:-5173}:5173
+      - ${DEV_APP_HOST_PORT:-3011}:3000
+      - ${DEV_CLIENT_HOST_PORT:-5173}:5173
     volumes:
       - .:/app
+      - ./data/dev/docmost:/app/data/storage
       - docmost_dev_node_modules:/app/node_modules
       - docmost_dev_client_node_modules:/app/apps/client/node_modules
       - docmost_dev_server_node_modules:/app/apps/server/node_modules
@@ -35,10 +40,10 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     ports:
-      - ${POSTGRES_HOST_PORT:-25432}:5432
+      - ${DEV_POSTGRES_HOST_PORT:-25433}:5432
     restart: unless-stopped
     volumes:
-      - ./data/db:/var/lib/postgresql
+      - ./data/dev/db:/var/lib/postgresql
 
   valkey:
     image: valkey/valkey:9.1-alpine3.23
@@ -47,7 +52,7 @@ services:
       - ${DEV_REDIS_HOST_PORT:-26379}:6379
     restart: unless-stopped
     volumes:
-      - ./data/valkey:/data
+      - ./data/dev/valkey:/data
 
 volumes:
   docmost_dev_node_modules:

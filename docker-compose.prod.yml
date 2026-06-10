@@ -1,0 +1,41 @@
+name: docmost-prod
+
+# Production deploy: run an image that was already built from this source tree.
+# Example:
+#   docker build -t agentwiki-docmost:1.0 .
+#   DOCMOST_IMAGE=agentwiki-docmost:1.0 docker compose --env-file .env -f docker-compose.prod.yml up -d
+services:
+  docmost:
+    image: ${DOCMOST_IMAGE:-agentwiki-docmost:latest}
+    container_name: mydocmost-prod
+    depends_on:
+      - db
+      - valkey
+    env_file:
+      - .env
+    ports:
+      - ${APP_HOST_PORT:-3010}:3000
+    restart: unless-stopped
+    volumes:
+      - ./data/prod/docmost:/app/data/storage
+
+  db:
+    image: pgvector/pgvector:0.8.2-pg18-trixie
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - ${POSTGRES_HOST_PORT:-25432}:5432
+    restart: unless-stopped
+    volumes:
+      - ./data/prod/db:/var/lib/postgresql
+
+  valkey:
+    image: valkey/valkey:9.1-alpine3.23
+    command: ["valkey-server", "--appendonly", "yes", "--maxmemory-policy", "noeviction"]
+    ports:
+      - ${REDIS_HOST_PORT:-26378}:6379
+    restart: unless-stopped
+    volumes:
+      - ./data/prod/valkey:/data
