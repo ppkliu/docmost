@@ -1,5 +1,12 @@
 import { Injectable } from '@nestjs/common';
+import { InjectKysely } from 'nestjs-kysely';
+import { KyselyDB } from '@docmost/db/types/kysely.types';
 import { AuditLogPayload, ActorType } from '../../common/events/audit-events';
+import {
+  AuditContext,
+  AUDIT_CONTEXT_KEY,
+} from '../../common/middlewares/audit-context.middleware';
+import { ClsService } from 'nestjs-cls';
 
 export type AuditLogContext = {
   workspaceId: string;
@@ -30,34 +37,97 @@ export type IAuditService = {
 export const AUDIT_SERVICE = Symbol('AUDIT_SERVICE');
 
 @Injectable()
-export class NoopAuditService implements IAuditService {
-  log(_payload: AuditLogPayload): void {
-    // No-op: swallow the log when EE module is not available
+export class AuditService implements IAuditService {
+  constructor(
+    @InjectKysely() private readonly db: KyselyDB,
+    private readonly cls: ClsService,
+  ) {}
+
+  async log(payload: AuditLogPayload): Promise<void> {
+    const context = this.cls.get<AuditContext>(AUDIT_CONTEXT_KEY);
+    if (!context?.workspaceId) return;
+    await this.logWithContext(payload, {
+      workspaceId: context.workspaceId,
+      actorId: context.actorId ?? undefined,
+      actorType: context.actorType,
+      ipAddress: context.ipAddress ?? undefined,
+      userAgent: context.userAgent ?? undefined,
+    });
   }
 
-  logWithContext(_payload: AuditLogPayload, _context: AuditLogContext): void {
-    // No-op: swallow the log when EE module is not available
+  async logWithContext(
+    payload: AuditLogPayload,
+    context: AuditLogContext,
+  ): Promise<void> {
+    await this.db
+      .insertInto('audit')
+      .values({
+        workspaceId: context.workspaceId,
+        actorId: context.actorId ?? null,
+        actorType: context.actorType ?? 'user',
+        event: payload.event,
+        resourceType: payload.resourceType,
+        resourceId: payload.resourceId ?? null,
+        spaceId: payload.spaceId ?? null,
+        changes: payload.changes ?? null,
+        metadata: {
+          ...(payload.metadata ?? {}),
+          ...(context.userAgent ? { userAgent: context.userAgent } : {}),
+        },
+        ipAddress: context.ipAddress ?? null,
+      })
+      .execute();
   }
 
-  logBatchWithContext(
-    _payloads: AuditLogPayload[],
-    _context: AuditLogContext,
-  ): void {
-    // No-op: swallow the log when EE module is not available
+  async logBatchWithContext(
+    payloads: AuditLogPayload[],
+    context: AuditLogContext,
+  ): Promise<void> {
+    if (payloads.length === 0) return;
+    await this.db
+      .insertInto('audit')
+      .values(
+        payloads.map((payload) => ({
+          workspaceId: context.workspaceId,
+          actorId: context.actorId ?? null,
+          actorType: context.actorType ?? 'user',
+          event: payload.event,
+          resourceType: payload.resourceType,
+          resourceId: payload.resourceId ?? null,
+          spaceId: payload.spaceId ?? null,
+          changes: payload.changes ?? null,
+          metadata: {
+            ...(payload.metadata ?? {}),
+            ...(context.userAgent ? { userAgent: context.userAgent } : {}),
+          },
+          ipAddress: context.ipAddress ?? null,
+        })),
+      )
+      .execute();
   }
 
-  setActorId(_actorId: string): void {
-    // No-op
+  setActorId(actorId: string): void {
+    const context = this.cls.get<AuditContext>(AUDIT_CONTEXT_KEY);
+    if (context) {
+      this.cls.set(AUDIT_CONTEXT_KEY, { ...context, actorId });
+    }
   }
 
-  setActorType(_actorType: ActorType): void {
-    // No-op
+  setActorType(actorType: ActorType): void {
+    const context = this.cls.get<AuditContext>(AUDIT_CONTEXT_KEY);
+    if (context) {
+      this.cls.set(AUDIT_CONTEXT_KEY, { ...context, actorType });
+    }
   }
 
-  updateRetention(
-    _workspaceId: string,
-    _retentionDays: number,
-  ): void {
-    // No-op
+  async updateRetention(
+    workspaceId: string,
+    retentionDays: number,
+  ): Promise<void> {
+    await this.db
+      .updateTable('workspaces')
+      .set({ auditRetentionDays: retentionDays, updatedAt: new Date() })
+      .where('id', '=', workspaceId)
+      .execute();
   }
 }
