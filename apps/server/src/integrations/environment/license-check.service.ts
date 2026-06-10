@@ -8,14 +8,16 @@ import { Feature } from '../../common/features';
 // usable and the matching settings can be enabled. EE-only features (SCIM,
 // security settings, etc.) are intentionally excluded and remain license-gated.
 //
-// Feature.AI surfaces the AI settings UI. Its generative (Ask AI) and search
-// (AI Answers / RAG) backends are implemented; AI Chat is the remaining gap
-// (no /api/ai/chats backend yet — see the AI Chat design / Workstream B3).
+// Feature.AI surfaces the AI settings UI. Its generative (Ask AI), search
+// (AI Answers / RAG), and chat assistant backends are implemented in OSS.
 const SELF_HOSTED_OSS_FEATURES: string[] = [
   Feature.API_KEYS,
   Feature.MCP,
   Feature.AI,
   Feature.COMMENT_RESOLUTION,
+  Feature.DOCX_IMPORT,
+  Feature.AUDIT_LOGS,
+  Feature.TEMPLATES,
 ];
 
 @Injectable()

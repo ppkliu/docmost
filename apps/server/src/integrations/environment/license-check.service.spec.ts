@@ -10,10 +10,14 @@ describe('LicenseCheckService (self-hosted OSS unlock)', () => {
     service = new LicenseCheckService(moduleRef, environmentService);
   });
 
-  it('grants api:keys, mcp, and ai without an EE license', () => {
+  it('grants OSS-implemented features without an EE license', () => {
     expect(service.hasFeature(null, Feature.API_KEYS)).toBe(true);
     expect(service.hasFeature(null, Feature.MCP)).toBe(true);
     expect(service.hasFeature(null, Feature.AI)).toBe(true);
+    expect(service.hasFeature(null, Feature.COMMENT_RESOLUTION)).toBe(true);
+    expect(service.hasFeature(null, Feature.DOCX_IMPORT)).toBe(true);
+    expect(service.hasFeature(null, Feature.AUDIT_LOGS)).toBe(true);
+    expect(service.hasFeature(null, Feature.TEMPLATES)).toBe(true);
   });
 
   it('still gates EE-only features (scim, security)', () => {
@@ -24,7 +28,15 @@ describe('LicenseCheckService (self-hosted OSS unlock)', () => {
   it('includes the OSS features in the resolved entitlements', () => {
     const features = service.resolveFeatures(null, 'free');
     expect(features).toEqual(
-      expect.arrayContaining([Feature.API_KEYS, Feature.MCP, Feature.AI]),
+      expect.arrayContaining([
+        Feature.API_KEYS,
+        Feature.MCP,
+        Feature.AI,
+        Feature.COMMENT_RESOLUTION,
+        Feature.DOCX_IMPORT,
+        Feature.AUDIT_LOGS,
+        Feature.TEMPLATES,
+      ]),
     );
     expect(features).not.toContain(Feature.SCIM);
   });
