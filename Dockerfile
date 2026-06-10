@@ -48,10 +48,17 @@ USER node
 
 RUN pnpm install --frozen-lockfile --prod
 
+USER root
+
 RUN mkdir -p /app/data/storage
+RUN chown -R node:node /app/data
+
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 VOLUME ["/app/data/storage"]
 
 EXPOSE 3000
 
+ENTRYPOINT ["docker-entrypoint.sh"]
 CMD ["pnpm", "start"]
