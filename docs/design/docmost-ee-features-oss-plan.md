@@ -7,9 +7,10 @@
 > OSS; the service logic `require()`s an absent `ee/*` module and throws "requires EE license".**
 > We implement an OSS-equivalent service in a non-`ee` path and unlock the feature flag.
 
-Done already (this round): **`Feature.AI` granted for self-hosted** (`license-check.service.ts`
-`SELF_HOSTED_OSS_FEATURES = [API_KEYS, MCP, AI]`) → AI settings now show by default. Companion
-unlock spec: [`docmost-ai-features-design.md`](./docmost-ai-features-design.md) §6.
+Done already: **`Feature.AI` granted for self-hosted** (`license-check.service.ts`
+`SELF_HOSTED_OSS_FEATURES` includes API keys, MCP, AI, comment resolution, and DOCX import) →
+AI settings now show by default. Companion unlock spec:
+[`docmost-ai-features-design.md`](./docmost-ai-features-design.md) §6.
 
 ---
 
@@ -17,8 +18,8 @@ unlock spec: [`docmost-ai-features-design.md`](./docmost-ai-features-design.md) 
 
 | # | Feature | Flag | Tables/deps present | OSS server today | Gap | Effort |
 |---|---------|------|---------------------|------------------|-----|--------|
-| 1 | **AI Chat (Assistant)** | `ai` | `ai_chats`,`ai_chat_messages` ✅; full client `ee/ai-chat/**` | none (8 `/ai/chats/*` 404) | whole chat backend + tool loop | **L** |
-| 2 | **DOCX import** | `import:docx` | `mammoth` dep ✅; `processHTML` ✅ | `processDocx` → `require ee` throws | OSS docx→html→prosemirror | **S–M** |
+| 1 | **AI Chat (Assistant)** | `ai` | `ai_chats`,`ai_chat_messages` ✅; full client `ee/ai-chat/**` | OSS `/ai/chats/*` backend ✅ | manual/live smoke | **done** |
+| 2 | **DOCX import** | `import:docx` | `mammoth` dep ✅; `processHTML` ✅ | OSS `mammoth` converter ✅ | live import smoke | **done** |
 | 2b| **PDF import** | `import:pdf` | none (needs pdf-text dep) | `processPdf` → `require ee` throws | add pdf dep + OSS extract | **M** |
 | 3 | **Full-text search in attachments** | `attachment:indexing` | `attachments-search` migration ✅; processor wired | `require ee/AttachmentEeService` | OSS extract + index (tsv) | **M** |
 | 4 | **Page-level permissions** | `page:permissions` | `page_permissions` ✅ + `PagePermissionRepo` ✅; client ee | EE-locked | OSS service/controller + CASL | **L** |
