@@ -33,6 +33,7 @@ import { QueueJob, QueueName } from '../../queue/constants';
 import { ModuleRef } from '@nestjs/core';
 import { load } from 'cheerio';
 import { normalizeImportHtml } from '../utils/import-formatter';
+import * as mammoth from 'mammoth';
 
 @Injectable()
 export class ImportService {
@@ -161,38 +162,20 @@ export class ImportService {
 
   async processDocx(
     fileBuffer: Buffer,
-    workspaceId: string,
-    spaceId: string,
-    pageId: string,
-    userId: string,
+    _workspaceId: string,
+    _spaceId: string,
+    _pageId: string,
+    _userId: string,
   ): Promise<any> {
-    let DocxImportModule: any;
     try {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      DocxImportModule = require('./../../../ee/document-import/docx-import.service');
+      const { value: html } = await mammoth.convertToHtml({
+        buffer: fileBuffer,
+      });
+      return this.processHTML(html);
     } catch (err) {
-      this.logger.error(
-        'DOCX import requested but EE module not bundled in this build',
-      );
-      throw new BadRequestException(
-        'This feature requires a valid enterprise license.',
-      );
+      this.logger.error('Failed to process DOCX import', err);
+      throw new BadRequestException('Failed to process DOCX import.');
     }
-
-    const docxImportService = this.moduleRef.get(
-      DocxImportModule.DocxImportService,
-      { strict: false },
-    );
-
-    const html = await docxImportService.convertDocxToHtml(
-      fileBuffer,
-      workspaceId,
-      spaceId,
-      pageId,
-      userId,
-    );
-
-    return this.processHTML(html);
   }
 
   async processPdf(
