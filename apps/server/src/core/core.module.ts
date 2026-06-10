@@ -29,6 +29,7 @@ import { DedupModule } from './dedup/dedup.module';
 import { McpModule } from '../integrations/mcp/mcp.module';
 import { AiModule } from '../integrations/ai/ai.module';
 import { ClsMiddleware } from 'nestjs-cls';
+import { TemplateModule } from './template/template.module';
 
 @Module({
   imports: [
@@ -54,6 +55,7 @@ import { ClsMiddleware } from 'nestjs-cls';
     DedupModule,
     McpModule,
     AiModule,
+    TemplateModule,
   ],
 })
 export class CoreModule implements NestModule {
