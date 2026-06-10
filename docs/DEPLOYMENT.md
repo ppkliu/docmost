@@ -6,7 +6,8 @@ is the "build on a local/dev machine → copy the release to the production mach
 Docker" workflow. Official reference: <https://docmost.com/docs/> (it documents the prebuilt-image
 path; we diverge by building from source).
 
-The stack (see [`docker-compose.yml`](../docker-compose.yml)): **docmost** (app), **db**
+The stack (see [`docker-compose.prod.yml`](../docker-compose.prod.yml) for production and
+[`docker-compose.dev.yml`](../docker-compose.dev.yml) for development): **docmost** (app), **db**
 (`pgvector/pgvector` — required for AI Answers), **valkey** (Redis-compatible, for queue + the
 organize SSE relay). Database **migrations run automatically** on app startup, so deploying a new
 build applies new migrations (e.g. `page_embeddings`, `organize_tasks`).
@@ -19,6 +20,7 @@ essentials:
 
 ```dotenv
 APP_HOST_PORT=3010                            # host port; app container listens on 3000
+REDIS_HOST_PORT=26378                         # optional host port for prod Valkey
 APP_URL=https://wiki.yourdomain.com           # the real public URL (used for links + statusUrl)
 APP_SECRET=<openssl rand -hex 32>             # 32+ chars
 POSTGRES_USER=docmost
@@ -32,6 +34,10 @@ FILE_UPLOAD_SIZE_LIMIT=50mb                   # blank now also defaults to 50mb
 ```
 > Common gotcha: `DATABASE_URL`/`REDIS_URL` must use the compose service names **`db`** and
 > **`valkey`** (not `localhost`/`127.0.0.1`) — the app runs in its own container.
+> Dev uses a separate `.env.dev` file copied from `.env.dev.example`; production compose uses
+> `.env` with `APP_HOST_PORT` and `POSTGRES_HOST_PORT`.
+> For dev, pass the dev env file explicitly:
+> `docker compose --env-file .env.dev -f docker-compose.dev.yml up`.
 
 AI features (optional) also need: `AI_DRIVER` (`openai|openai-compatible|gemini|ollama`),
 `AI_COMPLETION_MODEL`, and for AI Answers `AI_EMBEDDING_MODEL` + `AI_EMBEDDING_DIMENSION`
@@ -60,22 +66,21 @@ scp .env user@prod:/opt/docmost/.env        # or create .env directly on prod
 **On the production machine** (`/opt/docmost`):
 ```bash
 docker load < agentwiki-docmost-1.0.tar.gz   # loads agentwiki-docmost:1.0
-docker compose -f docker-compose.prod.yml up -d
+DOCMOST_IMAGE=agentwiki-docmost:1.0 docker compose --env-file .env -f docker-compose.prod.yml up -d
 docker compose -f docker-compose.prod.yml logs -f docmost   # watch migrations run
 ```
 
-`docker-compose.prod.yml` is the repo compose with the app service switched from `build:` to the
-**prebuilt image** (so prod never compiles):
+`docker-compose.prod.yml` runs the **prebuilt image** (so prod never compiles):
 ```yaml
 services:
   docmost:
-    image: agentwiki-docmost:1.0        # <- use the loaded image, no `build:`
-    container_name: docmost
+    image: ${DOCMOST_IMAGE:-agentwiki-docmost:latest}  # <- loaded/pulled image, no `build:`
+    container_name: mydocmost-prod
     depends_on: [db, valkey]
     env_file: [.env]
     ports: ["${APP_HOST_PORT}:3000"]
     restart: unless-stopped
-    volumes: ["./data/docmost:/app/data/storage"]
+    volumes: ["./data/prod/docmost:/app/data/storage"]
   db:
     image: pgvector/pgvector:0.8.2-pg18-trixie
     environment:
@@ -83,12 +88,12 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     restart: unless-stopped
-    volumes: ["./data/db:/var/lib/postgresql"]
+    volumes: ["./data/prod/db:/var/lib/postgresql"]
   valkey:
     image: valkey/valkey:9.1-alpine3.23
     command: ["valkey-server","--appendonly","yes","--maxmemory-policy","noeviction"]
     restart: unless-stopped
-    volumes: ["./data/valkey:/data"]
+    volumes: ["./data/prod/valkey:/data"]
 ```
 
 ## Approach B — private registry (recommended for repeat deploys / CI)
@@ -108,6 +113,19 @@ docker compose up -d --build
 ```
 Use only if the prod host has enough CPU/RAM to run `pnpm build` (the server build benefits from
 `NODE_OPTIONS=--max-old-space-size=2048+`).
+
+## Development compose — install packages and rebuild from source
+Development uses [`.env.dev.example`](../.env.dev.example), `Dockerfile.dev`, bind-mounted source,
+and separate ports/data so it can run next to production:
+
+```bash
+cp .env.dev.example .env.dev
+docker compose --env-file .env.dev -f docker-compose.dev.yml up -d --build
+docker compose --env-file .env.dev -f docker-compose.dev.yml logs -f docmost-dev
+```
+
+Default development ports are app `3011`, Vite `5173`, Postgres `25433`, and Valkey `26379`.
+Production defaults are app `3010`, Postgres `25432`, and Valkey `26378`.
 
 ---
 
@@ -149,5 +167,8 @@ Migrations are forward-only and run on boot; take a `./data/db` backup before up
   `page_embeddings` migration runs `CREATE EXTENSION IF NOT EXISTS vector`.
 - Health: `docker compose logs docmost` should show migrations applied and the server listening on
   3000; `curl http://localhost:${APP_HOST_PORT}` returns the app.
+- Local file uploads require the bind-mounted storage directory to be writable by the app user. The
+  production image entrypoint fixes `/app/data/storage` ownership on startup; after changing the
+  Dockerfile, rebuild the image before retesting uploads.
 - `STORAGE_DRIVER=s3`/`azure` is recommended for multi-node or durable production storage instead
   of the local bind-mount.

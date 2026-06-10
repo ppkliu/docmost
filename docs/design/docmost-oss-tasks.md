@@ -41,9 +41,9 @@ Legend: ✅ done & verified · 🟡 partial · ⬜ todo
 ## 6. Feature-gate / entitlement unlock (makes MCP + AI UI toggles usable)
 - ✅ T6.1 grant OSS-implemented features for self-hosted in **`license-check.service.ts`**
   (single source of truth — feeds both `resolveFeatures` for the entitlements endpoint and
-  `hasFeature` for the enable-gate). `SELF_HOSTED_OSS_FEATURES = [API_KEYS, MCP]` — both fully
-  implemented + verified. SCIM/security/AI-search stay license-gated. `ai` intentionally held
-  until B2 (AI Search) has a backend, to avoid exposing a broken toggle. 4 unit tests, build+lint.
+  `hasFeature` for the enable-gate). Current self-hosted unlock:
+  `SELF_HOSTED_OSS_FEATURES = [API_KEYS, MCP, AI, COMMENT_RESOLUTION]`. Features still missing
+  an OSS backend stay license-gated until their slice lands. Unit tests cover the unlock list.
 - ⬜ T6.2 live: verify admin Settings shows the API-keys + MCP entries and the MCP toggle enables
   (needs a running stack)
 
@@ -71,9 +71,9 @@ Legend: ✅ done & verified · 🟡 partial · ⬜ todo
 ## 10. EE features → OSS program (plan: [docmost-ee-features-oss-plan.md](./docmost-ee-features-oss-plan.md))
 - ✅ E0 open AI settings by default: `Feature.AI` granted for self-hosted (`SELF_HOSTED_OSS_FEATURES`)
 - ✅ E1 Resolve comments (S): `POST /api/comments/resolve` + `CommentService.resolveComment` + `comment:resolution` unlock; 2 unit tests, build+lint green. Manual: [docs/manuals/E1-resolve-comments.md](../manuals/E1-resolve-comments.md)
-- ⬜ E2 DOCX import (S–M): OSS `processDocx` via `mammoth` → `processHTML`; unlock `import:docx`
-- ⬜ E3 Audit logs (M): OSS `AuditService` recording into `audit` + `POST /audit/logs` + unlock `audit:logs`
-- ⬜ E4 Templates (M): OSS `TemplateModule` over `templates`/`TemplateRepo`; unlock `templates`
+- ✅ E2 DOCX import (S–M): OSS `processDocx` via `mammoth` → `processHTML`; unlock `import:docx`. Manual: [docs/manuals/E2-docx-import.md](../manuals/E2-docx-import.md)
+- ✅ E3 Audit logs (M): OSS `AuditService` recording into `audit` + `POST /audit` + retention endpoints + unlock `audit:logs`. Manual: [docs/manuals/E3-audit-logs.md](../manuals/E3-audit-logs.md)
+- ✅ E4 Templates (M): OSS `TemplateModule` over `templates`/`TemplateRepo`; unlock `templates`. Manual: [docs/manuals/E4-templates.md](../manuals/E4-templates.md)
 - ⬜ E5 Attachment full-text (M) + PDF import (M): shared text-extraction layer; unlock `attachment:indexing`/`import:pdf`
 - ⬜ E6 Page verification & approval (M): OSS module over `page_verifications`; unlock `page:verification`
 - ⬜ E7 Page-level permissions (L): OSS module + CASL integration over `page_permissions`; unlock `page:permissions`
