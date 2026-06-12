@@ -18,6 +18,7 @@ const SELF_HOSTED_OSS_FEATURES: string[] = [
   Feature.DOCX_IMPORT,
   Feature.AUDIT_LOGS,
   Feature.TEMPLATES,
+  Feature.PAGE_PERMISSIONS,
 ];
 
 @Injectable()
