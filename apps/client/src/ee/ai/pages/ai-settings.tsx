@@ -8,7 +8,9 @@ import EnableAiSearch from "@/ee/ai/components/enable-ai-search.tsx";
 import EnableGenerativeAi from "@/ee/ai/components/enable-generative-ai.tsx";
 import EnableAiChat from "@/ee/ai-chat/components/enable-ai-chat.tsx";
 import McpSettings from "@/ee/ai/components/mcp-settings.tsx";
-import { Alert, Stack, Tabs } from "@mantine/core";
+import AiProviderSettings from "@/ee/ai/components/ai-provider-settings.tsx";
+import AiKbSettings from "@/ee/ai/components/ai-kb-settings.tsx";
+import { Alert, Divider, Stack, Tabs } from "@mantine/core";
 import { IconInfoCircle } from "@tabler/icons-react";
 import { useHasFeature } from "@/ee/hooks/use-feature";
 import { Feature } from "@/ee/features";
@@ -70,6 +72,10 @@ export default function AiSettings() {
           )}
 
           <Stack gap="md">
+            {!isCloud() && <AiProviderSettings />}
+            {!isCloud() && <Divider />}
+            {!isCloud() && <AiKbSettings />}
+            {!isCloud() && <Divider />}
             {!isCloud() && <EnableAiSearch />}
             <EnableGenerativeAi />
             <EnableAiChat />

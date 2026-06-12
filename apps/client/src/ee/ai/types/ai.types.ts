@@ -27,9 +27,95 @@ export interface AiContentResponse {
   };
 }
 
+export interface AiProviderConfig {
+  driver: string;
+  baseUrl: string;
+  completionModel: string;
+  embeddingModel: string;
+  embeddingDimension: number;
+  hasApiKey: boolean;
+  embeddingConfigured: boolean;
+}
+
 export interface AiConfigResponse {
   configured: boolean;
   availableActions: AiAction[];
+  provider?: AiProviderConfig;
+}
+
+export interface AiSettingsDto {
+  driver?: string;
+  baseUrl?: string;
+  apiKey?: string;
+  completionModel?: string;
+  embeddingModel?: string;
+  embeddingDimension?: number;
+  // Deletes the stored apiKey override (falls back to env).
+  clearApiKey?: boolean;
+}
+
+export interface AiSettingsResponse {
+  configured: boolean;
+  provider: AiProviderConfig;
+}
+
+export type AiTestTarget = "completion" | "embedding";
+
+export interface AiTestDto extends AiSettingsDto {
+  targets?: AiTestTarget[];
+}
+
+export interface AiTestResult {
+  target: AiTestTarget;
+  success: boolean;
+  message: string;
+  latencyMs: number;
+}
+
+export interface AiTestResponse {
+  success: boolean;
+  results: AiTestResult[];
+}
+
+export interface AiModelsResponse {
+  models: string[];
+  // Set when listing only succeeded after appending /v1 — a suggestion to apply.
+  normalizedBaseUrl?: string;
+}
+
+// --- External knowledge-base connectors (K1/K2) ---
+
+export type KbType = "cognee" | "llm-wiki" | "custom";
+
+export interface KbConnector {
+  id: string;
+  type: KbType;
+  name: string;
+  baseUrl: string;
+  searchPath?: string;
+  enabled: boolean;
+  hasApiKey: boolean;
+}
+
+export interface KbListResponse {
+  connectors: KbConnector[];
+}
+
+export interface UpsertKbConnectorDto {
+  id?: string;
+  type: KbType;
+  name: string;
+  baseUrl: string;
+  apiKey?: string;
+  clearApiKey?: boolean;
+  searchPath?: string;
+  enabled?: boolean;
+}
+
+export interface KbTestResponse {
+  success: boolean;
+  message: string;
+  latencyMs: number;
 }
 
 export interface AiStreamChunk {
