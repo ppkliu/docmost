@@ -28,6 +28,7 @@ function makeRepo(overrides: Partial<Record<string, any>> = {}) {
 
 function makeProvider(configured = true) {
   return {
+    resolveConfig: jest.fn().mockReturnValue({ driver: 'openai' }),
     isConfigured: jest.fn().mockReturnValue(configured),
     completionModel: jest.fn().mockReturnValue({}),
   };
@@ -46,16 +47,26 @@ function makeAttachmentRepo() {
   return { linkAttachmentsToAiChat: jest.fn().mockResolvedValue(undefined) };
 }
 
+function makeKb(overrides: Partial<Record<string, any>> = {}) {
+  return {
+    getConnectors: jest.fn().mockReturnValue([]),
+    search: jest.fn().mockResolvedValue([]),
+    ...overrides,
+  };
+}
+
 function makeService(
   repo = makeRepo(),
   provider = makeProvider(),
   answer = makeAnswer(),
   attachmentRepo = makeAttachmentRepo(),
+  kb = makeKb(),
 ) {
   return new AiChatService(
     repo as any,
     provider as any,
     answer as any,
+    kb as any,
     attachmentRepo as any,
   );
 }
@@ -270,6 +281,82 @@ describe('AiChatService', () => {
           ],
         }),
       );
+    });
+
+    it('registers a federated search tool per enabled KB connector', async () => {
+      mockFullStream([
+        { type: 'text-delta', text: 'ok' },
+        {
+          type: 'finish',
+          totalUsage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
+        },
+      ]);
+
+      const repo = makeRepo({
+        findChatById: jest.fn().mockResolvedValue({ id: 'c1', title: 't' }),
+        insertMessage: jest
+          .fn()
+          .mockResolvedValueOnce({ id: 'm-user' })
+          .mockResolvedValueOnce({ id: 'm-assistant' }),
+        findMessages: jest.fn().mockResolvedValue([]),
+      });
+      const kb = makeKb({
+        getConnectors: jest.fn().mockReturnValue([
+          {
+            id: 'kb1',
+            type: 'cognee',
+            name: 'Team Cognee',
+            baseUrl: 'http://kb',
+            enabled: true,
+          },
+          {
+            id: 'kb2',
+            type: 'custom',
+            name: 'Old KB',
+            baseUrl: 'http://old',
+            enabled: false,
+          },
+        ]),
+        search: jest
+          .fn()
+          .mockResolvedValue([{ title: 'Doc', content: 'text' }]),
+      });
+      const svc = makeService(
+        repo,
+        makeProvider(),
+        makeAnswer(),
+        makeAttachmentRepo(),
+        kb,
+      );
+
+      await drain(
+        svc.streamSend({ chatId: 'c1', content: 'q' } as any, user, workspace),
+      );
+
+      const callArgs = (streamText as jest.Mock).mock.calls[0][0];
+      const toolNames = Object.keys(callArgs.tools ?? {});
+      expect(toolNames).toContain('search_team_cognee');
+      // disabled connectors are not offered
+      expect(toolNames).not.toContain('search_old_kb');
+
+      // the tool returns attributed results...
+      const ok = await callArgs.tools.search_team_cognee.execute({
+        query: 'x',
+      });
+      expect(ok).toEqual({
+        source: 'Team Cognee',
+        results: [{ title: 'Doc', content: 'text' }],
+      });
+      // ...and degrades to an error payload instead of throwing
+      kb.search.mockRejectedValueOnce(new Error('boom'));
+      const failed = await callArgs.tools.search_team_cognee.execute({
+        query: 'x',
+      });
+      expect(failed).toEqual({
+        source: 'Team Cognee',
+        error: 'knowledge base unreachable',
+        results: [],
+      });
     });
 
     it('merges referenced page context into the leading system prompt', async () => {
