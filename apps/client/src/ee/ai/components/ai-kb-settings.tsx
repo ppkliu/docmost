@@ -2,6 +2,7 @@ import { useState } from "react";
 import {
   Badge,
   Button,
+  Checkbox,
   Group,
   Modal,
   PasswordInput,
@@ -58,6 +59,7 @@ function ConnectorFormModal({
   const [baseUrl, setBaseUrl] = useState(connector?.baseUrl || "");
   const [apiKey, setApiKey] = useState("");
   const [searchPath, setSearchPath] = useState(connector?.searchPath || "");
+  const [sync, setSync] = useState(Boolean(connector?.sync));
   const [testResult, setTestResult] = useState<KbTestResponse | null>(null);
 
   const saveMutation = useMutation({
@@ -106,6 +108,7 @@ function ConnectorFormModal({
       baseUrl: baseUrl.trim(),
       apiKey: apiKey || undefined,
       searchPath: searchPath.trim() || undefined,
+      sync: type === "cognee" ? sync : undefined,
     });
   };
 
@@ -150,6 +153,16 @@ function ConnectorFormModal({
             description={t("POST endpoint receiving { query, limit }")}
             value={searchPath}
             onChange={(e) => setSearchPath(e.currentTarget.value)}
+          />
+        )}
+        {type === "cognee" && (
+          <Checkbox
+            label={t("Sync wiki content into this knowledge base")}
+            description={t(
+              "Mirrors unrestricted pages into per-space Cognee datasets; chat searches are scoped to the spaces each user can access. Restricted pages never leave the wiki.",
+            )}
+            checked={sync}
+            onChange={(e) => setSync(e.currentTarget.checked)}
           />
         )}
 
@@ -256,6 +269,11 @@ export default function AiKbSettings() {
             <Badge size="xs" variant="light">
               {kb.type}
             </Badge>
+            {kb.sync && (
+              <Badge size="xs" variant="light" color="grape">
+                {t("sync")}
+              </Badge>
+            )}
             {kb.hasApiKey && (
               <Badge size="xs" variant="outline">
                 {t("key")}

@@ -94,6 +94,8 @@ export interface KbConnector {
   baseUrl: string;
   searchPath?: string;
   enabled: boolean;
+  // K3: mirror docmost content into this KB (cognee only)
+  sync?: boolean;
   hasApiKey: boolean;
 }
 
@@ -110,6 +112,7 @@ export interface UpsertKbConnectorDto {
   clearApiKey?: boolean;
   searchPath?: string;
   enabled?: boolean;
+  sync?: boolean;
 }
 
 export interface KbTestResponse {
