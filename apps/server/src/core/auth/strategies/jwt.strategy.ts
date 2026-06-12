@@ -9,8 +9,17 @@ import { UserSessionRepo } from '@docmost/db/repos/session/user-session.repo';
 import { SessionActivityService } from '../../session/session-activity.service';
 import { FastifyRequest } from 'fastify';
 import { extractBearerTokenFromHeader, isUserDisabled } from '../../../common/helpers';
+import { UserRole } from '../../../common/helpers/types/permission';
 import { ModuleRef } from '@nestjs/core';
 import { ApiKeyService } from '../../api-key/api-key.service';
+
+/**
+ * H1 attribution: a service API key owned by a workspace admin/owner may act
+ * on behalf of a member, so agent-submitted content (e.g. Hermes knowledge
+ * precipitation) is attributed to the real author instead of the service
+ * account. Member-owned keys cannot impersonate.
+ */
+export const ON_BEHALF_OF_HEADER = 'x-on-behalf-of';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
@@ -85,7 +94,8 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
         const eeService = this.moduleRef.get(EeApiKeyModule.ApiKeyService, {
           strict: false,
         });
-        return eeService.validateApiKey(payload);
+        const eeResult = await eeService.validateApiKey(payload);
+        return this.applyOnBehalfOf(req, eeResult);
       }
     } catch (err) {
       this.logger.debug(
@@ -97,6 +107,48 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     if (!apiKeyService) {
       throw new UnauthorizedException('API Key module missing');
     }
-    return apiKeyService.validateApiKey(payload);
+    const result = await apiKeyService.validateApiKey(payload);
+    return this.applyOnBehalfOf(req, result);
+  }
+
+  /**
+   * Swaps the request identity to the on-behalf-of user when the key owner is
+   * allowed to delegate. Invalid targets fail loudly (401) rather than
+   * silently mis-attributing content to the service account.
+   */
+  private async applyOnBehalfOf(
+    req: any,
+    result: { user: any; workspace: any },
+  ) {
+    const email = String(
+      req?.raw?.headers?.[ON_BEHALF_OF_HEADER] ?? '',
+    ).trim();
+    if (!email) {
+      return result;
+    }
+
+    const owner = result.user;
+    if (owner.role !== UserRole.ADMIN && owner.role !== UserRole.OWNER) {
+      throw new UnauthorizedException(
+        'This API key cannot act on behalf of other users',
+      );
+    }
+
+    const target = await this.userRepo.findByEmail(
+      email.toLowerCase(),
+      result.workspace.id,
+    );
+    if (!target || isUserDisabled(target)) {
+      throw new UnauthorizedException(
+        `Unknown on-behalf-of user: ${email}`,
+      );
+    }
+
+    // surfaced for audit logging downstream
+    req.raw.impersonatorId = owner.id;
+    this.logger.log(
+      `API key of ${owner.id} acting on behalf of ${target.id} (${email})`,
+    );
+    return { user: target, workspace: result.workspace };
   }
 }
