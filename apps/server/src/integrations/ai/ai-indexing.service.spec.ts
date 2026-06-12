@@ -16,7 +16,6 @@ function dbReturning(settings: unknown) {
 describe('AiIndexingService', () => {
   let embeddingRepo: any;
   let provider: any;
-  let environmentService: any;
 
   beforeEach(() => {
     embeddingRepo = {
@@ -26,25 +25,20 @@ describe('AiIndexingService', () => {
       listWorkspacePageIds: jest.fn().mockResolvedValue([]),
     };
     provider = {
+      resolveConfig: jest
+        .fn()
+        .mockReturnValue({ embeddingModel: 'text-embedding-3-small' }),
       isEmbeddingConfigured: jest.fn().mockReturnValue(true),
       embeddingModel: jest.fn().mockReturnValue({}),
       embeddingDimension: jest.fn().mockReturnValue(1536),
     };
-    environmentService = {
-      getAiEmbeddingModel: jest.fn().mockReturnValue('text-embedding-3-small'),
-    };
   });
 
   const make = (settings: unknown) =>
-    new AiIndexingService(
-      dbReturning(settings),
-      embeddingRepo,
-      provider,
-      environmentService,
-    );
+    new AiIndexingService(dbReturning(settings), embeddingRepo, provider);
 
   describe('isEnabled', () => {
-    it('is false when embeddings are not configured (no db hit)', async () => {
+    it('is false when embeddings are not configured', async () => {
       provider.isEmbeddingConfigured.mockReturnValue(false);
       const svc = make({ ai: { search: true } });
       expect(await svc.isEnabled('ws-1')).toBe(false);
