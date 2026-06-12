@@ -25,6 +25,7 @@ import {
   UpsertKbConnectorDto,
 } from './dto/ai-kb.dto';
 import { AiKbService, KbConnector } from './ai-kb.service';
+import { KbSyncService } from './kb-sync.service';
 import { encryptSecret } from './secret.util';
 import { EnvironmentService } from '../environment/environment.service';
 import { AI_ACTION_IDS } from './prompts';
@@ -51,6 +52,7 @@ export class AiController {
     private readonly aiProviderService: AiProviderService,
     private readonly aiConnectionService: AiConnectionService,
     private readonly aiKbService: AiKbService,
+    private readonly kbSyncService: KbSyncService,
     private readonly environmentService: EnvironmentService,
     private readonly workspaceRepo: WorkspaceRepo,
     private readonly workspaceAbility: WorkspaceAbilityFactory,
@@ -151,7 +153,7 @@ export class AiController {
     };
   }
 
-  /** Creates or updates a connector. */
+  /** Creates or updates a connector. Sync transitions trigger backfill/teardown (K3). */
   @HttpCode(HttpStatus.OK)
   @Post('kb')
   async upsertKbConnector(
@@ -160,11 +162,28 @@ export class AiController {
     @AuthWorkspace() workspace: Workspace,
   ) {
     this.assertAdmin(user, workspace);
+    const prev = dto.id
+      ? this.aiKbService
+          .getConnectors(workspace.settings as any)
+          .find((kb) => kb.id === dto.id)
+      : undefined;
     const next = this.aiKbService.upsertConnector(
       workspace.settings as any,
       dto,
     );
     await this.workspaceRepo.updateAiKnowledgeBases(workspace.id, next as any);
+
+    const updated = next.find((kb) =>
+      dto.id ? kb.id === dto.id : !prev && kb.name === dto.name.trim(),
+    );
+    const wasSynced = Boolean(prev?.sync && prev?.enabled);
+    const isSynced = Boolean(updated?.sync && updated?.enabled);
+    if (updated && !wasSynced && isSynced) {
+      await this.kbSyncService.scheduleBackfill(updated.id, workspace.id);
+    } else if (updated && wasSynced && !isSynced) {
+      await this.kbSyncService.scheduleTeardown(updated.id, workspace.id);
+    }
+
     return {
       connectors: this.aiKbService.maskConnectors({
         ai: { knowledgeBases: next },
@@ -180,6 +199,22 @@ export class AiController {
     @AuthWorkspace() workspace: Workspace,
   ) {
     this.assertAdmin(user, workspace);
+
+    // teardown must run while the connector config (credentials) still
+    // exists — inline, best-effort
+    const existing = this.aiKbService
+      .getConnectors(workspace.settings as any)
+      .find((kb) => kb.id === dto.id);
+    if (existing?.sync) {
+      try {
+        await this.kbSyncService.teardown(existing.id, workspace.id);
+      } catch (err) {
+        this.logger.warn(
+          `KB teardown on delete failed (${existing.name}): ${(err as Error)?.message}`,
+        );
+      }
+    }
+
     const next = this.aiKbService.removeConnector(
       workspace.settings as any,
       dto.id,

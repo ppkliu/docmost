@@ -3,18 +3,25 @@ import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Job } from 'bullmq';
 import { QueueJob, QueueName } from '../../queue/constants';
 import { AiIndexingService } from '../ai-indexing.service';
+import { KbSyncService } from '../kb-sync.service';
 
 interface AiJobData {
   pageIds?: string[];
   pageId?: string;
   workspaceId?: string;
+  // K3 KB sync jobs
+  connectorId?: string;
+  spaceId?: string;
 }
 
 @Processor(QueueName.AI_QUEUE)
 export class AiQueueProcessor extends WorkerHost {
   private readonly logger = new Logger(AiQueueProcessor.name);
 
-  constructor(private readonly indexingService: AiIndexingService) {
+  constructor(
+    private readonly indexingService: AiIndexingService,
+    private readonly kbSyncService: KbSyncService,
+  ) {
     super();
   }
 
@@ -31,6 +38,11 @@ export class AiQueueProcessor extends WorkerHost {
         case QueueJob.GENERATE_PAGE_EMBEDDINGS: {
           if (data.workspaceId) {
             await this.indexingService.embedPages(pageIds, data.workspaceId);
+            // K3 fan-out: page changes also schedule a debounced KB rebuild
+            await this.kbSyncService.schedulePageSync(
+              pageIds,
+              data.workspaceId,
+            );
           }
           break;
         }
@@ -38,6 +50,31 @@ export class AiQueueProcessor extends WorkerHost {
         case QueueJob.PAGE_SOFT_DELETED:
         case QueueJob.DELETE_PAGE_EMBEDDINGS: {
           await this.indexingService.deletePages(pageIds);
+          if (data.workspaceId) {
+            await this.kbSyncService.schedulePageSync(
+              pageIds,
+              data.workspaceId,
+            );
+          }
+          break;
+        }
+        case QueueJob.KB_SYNC_SPACE: {
+          if (data.connectorId && data.workspaceId && data.spaceId) {
+            await this.kbSyncService.syncSpace(
+              data.connectorId,
+              data.workspaceId,
+              data.spaceId,
+            );
+          }
+          break;
+        }
+        case QueueJob.KB_TEARDOWN: {
+          if (data.connectorId && data.workspaceId) {
+            await this.kbSyncService.teardown(
+              data.connectorId,
+              data.workspaceId,
+            );
+          }
           break;
         }
         case QueueJob.WORKSPACE_CREATE_EMBEDDINGS: {

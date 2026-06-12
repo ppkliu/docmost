@@ -64,6 +64,10 @@ export enum QueueJob {
   GENERATE_PAGE_EMBEDDINGS = 'generate-page-embeddings',
   DELETE_PAGE_EMBEDDINGS = 'delete-page-embeddings',
 
+  // K3: external KB sync (rebuild-per-space strategy, debounced)
+  KB_SYNC_SPACE = 'kb-sync-space',
+  KB_TEARDOWN = 'kb-teardown',
+
   PAGE_HISTORY = 'page-history',
 
   COMMENT_NOTIFICATION = 'comment-notification',

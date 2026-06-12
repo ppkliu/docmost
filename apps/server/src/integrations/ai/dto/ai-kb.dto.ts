@@ -47,6 +47,11 @@ export class UpsertKbConnectorDto {
   @IsOptional()
   @IsBoolean()
   enabled?: boolean;
+
+  // K3: mirror docmost content into this KB (cognee only).
+  @IsOptional()
+  @IsBoolean()
+  sync?: boolean;
 }
 
 export class KbConnectorIdDto {

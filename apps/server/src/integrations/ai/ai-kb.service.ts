@@ -16,6 +16,8 @@ export interface KbConnector {
   /** Optional search path override for custom servers (default /search). */
   searchPath?: string;
   enabled: boolean;
+  /** K3: mirror docmost content into this KB (cognee only). */
+  sync?: boolean;
 }
 
 export interface KbConnectorMasked extends Omit<KbConnector, 'apiKey'> {
@@ -84,6 +86,7 @@ export class AiKbService {
       clearApiKey?: boolean;
       searchPath?: string;
       enabled?: boolean;
+      sync?: boolean;
     },
   ): KbConnector[] {
     const list = [...(settings?.ai?.knowledgeBases ?? [])];
@@ -118,6 +121,11 @@ export class AiKbService {
       apiKey: storedKey,
       searchPath: input.searchPath?.trim() || undefined,
       enabled: input.enabled ?? existing?.enabled ?? true,
+      // sync is cognee-only; other types ignore it
+      sync:
+        input.type === 'cognee'
+          ? (input.sync ?? existing?.sync ?? false)
+          : undefined,
     };
 
     if (existingIndex >= 0) {
@@ -175,7 +183,7 @@ export class AiKbService {
   async search(
     connector: KbConnector,
     query: string,
-    opts: { limit?: number } = {},
+    opts: { limit?: number; datasets?: string[] } = {},
   ): Promise<KbSearchResult[]> {
     const limit = opts.limit ?? 5;
     const base = this.normalizeBaseUrl(connector.baseUrl);
@@ -186,6 +194,8 @@ export class AiKbService {
       case 'cognee':
         url = `${base}/api/v1/search`;
         body = { searchType: 'CHUNKS', query, topK: limit };
+        // K4.1: synced connectors search only the caller's space datasets
+        if (opts.datasets) body.datasets = opts.datasets;
         break;
       case 'llm-wiki':
         url = `${base}/api/search`;
@@ -216,6 +226,102 @@ export class AiKbService {
     }
     const data = await response.json();
     return this.parseResults(data, limit);
+  }
+
+  // ==========================================================================
+  // K3: cognee ingest adapters (rebuild-per-space sync strategy)
+  // ==========================================================================
+
+  /** Cognee dataset name for a docmost space. */
+  datasetName(workspaceId: string, spaceId: string): string {
+    return `docmost_${workspaceId}_${spaceId}`.replace(/-/g, '');
+  }
+
+  async addDocuments(
+    connector: KbConnector,
+    dataset: string,
+    texts: string[],
+  ): Promise<void> {
+    if (texts.length === 0) return;
+    const base = this.normalizeBaseUrl(connector.baseUrl);
+    await this.requestJson(connector, 'POST', `${base}/api/v1/add`, {
+      data: texts,
+      datasetName: dataset,
+    });
+  }
+
+  async cognify(connector: KbConnector, datasets: string[]): Promise<void> {
+    const base = this.normalizeBaseUrl(connector.baseUrl);
+    await this.requestJson(connector, 'POST', `${base}/api/v1/cognify`, {
+      datasets,
+    });
+  }
+
+  /** Lists datasets as {id, name}; tolerant of shape variations. */
+  async listDatasets(
+    connector: KbConnector,
+  ): Promise<{ id: string; name: string }[]> {
+    const base = this.normalizeBaseUrl(connector.baseUrl);
+    const data = await this.requestJson(
+      connector,
+      'GET',
+      `${base}/api/v1/datasets`,
+    );
+    const raw = Array.isArray(data) ? data : (data?.items ?? data?.data ?? []);
+    return (Array.isArray(raw) ? raw : [])
+      .map((d: any) => ({
+        id: String(d?.id ?? ''),
+        name: String(d?.name ?? ''),
+      }))
+      .filter((d) => d.id && d.name);
+  }
+
+  /** Deletes a dataset by name. Missing datasets are not an error. */
+  async deleteDatasetByName(
+    connector: KbConnector,
+    name: string,
+  ): Promise<void> {
+    const datasets = await this.listDatasets(connector);
+    const match = datasets.find((d) => d.name === name);
+    if (!match) return;
+    const base = this.normalizeBaseUrl(connector.baseUrl);
+    try {
+      await this.requestJson(
+        connector,
+        'DELETE',
+        `${base}/api/v1/datasets/${match.id}`,
+      );
+    } catch (err) {
+      if ((err as any)?.status === 404) return;
+      throw err;
+    }
+  }
+
+  private async requestJson(
+    connector: KbConnector,
+    method: string,
+    url: string,
+    body?: Record<string, unknown>,
+  ): Promise<any> {
+    const headers: Record<string, string> = {};
+    if (body) headers['content-type'] = 'application/json';
+    if (connector.apiKey) {
+      headers.authorization = `Bearer ${connector.apiKey}`;
+    }
+    const response = await fetch(url, {
+      method,
+      headers,
+      body: body ? JSON.stringify(body) : undefined,
+      signal: AbortSignal.timeout(SEARCH_TIMEOUT_MS),
+    });
+    if (!response.ok) {
+      const err: any = new Error(`HTTP ${response.status}`);
+      err.status = response.status;
+      throw err;
+    }
+    // some endpoints return empty bodies
+    const text = await response.text();
+    return text ? JSON.parse(text) : undefined;
   }
 
   private parseResults(data: any, limit: number): KbSearchResult[] {
