@@ -18,6 +18,7 @@ describe('LicenseCheckService (self-hosted OSS unlock)', () => {
     expect(service.hasFeature(null, Feature.DOCX_IMPORT)).toBe(true);
     expect(service.hasFeature(null, Feature.AUDIT_LOGS)).toBe(true);
     expect(service.hasFeature(null, Feature.TEMPLATES)).toBe(true);
+    expect(service.hasFeature(null, Feature.PAGE_PERMISSIONS)).toBe(true);
   });
 
   it('still gates EE-only features (scim, security)', () => {
@@ -36,6 +37,7 @@ describe('LicenseCheckService (self-hosted OSS unlock)', () => {
         Feature.DOCX_IMPORT,
         Feature.AUDIT_LOGS,
         Feature.TEMPLATES,
+        Feature.PAGE_PERMISSIONS,
       ]),
     );
     expect(features).not.toContain(Feature.SCIM);
