@@ -61,6 +61,7 @@ function makeService(
   answer = makeAnswer(),
   attachmentRepo = makeAttachmentRepo(),
   kb = makeKb(),
+  spaceMemberRepo = { getUserSpaceIds: jest.fn().mockResolvedValue([]) },
 ) {
   return new AiChatService(
     repo as any,
@@ -68,6 +69,7 @@ function makeService(
     answer as any,
     kb as any,
     attachmentRepo as any,
+    spaceMemberRepo as any,
   );
 }
 
@@ -357,6 +359,67 @@ describe('AiChatService', () => {
         error: 'knowledge base unreachable',
         results: [],
       });
+    });
+
+    it('K4.1: scopes synced cognee connectors to the caller\'s space datasets', async () => {
+      mockFullStream([
+        { type: 'text-delta', text: 'ok' },
+        {
+          type: 'finish',
+          totalUsage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
+        },
+      ]);
+      const repo = makeRepo({
+        findChatById: jest.fn().mockResolvedValue({ id: 'c1', title: 't' }),
+        insertMessage: jest
+          .fn()
+          .mockResolvedValueOnce({ id: 'm-user' })
+          .mockResolvedValueOnce({ id: 'm-assistant' }),
+        findMessages: jest.fn().mockResolvedValue([]),
+      });
+      const kb = makeKb({
+        getConnectors: jest.fn().mockReturnValue([
+          {
+            id: 'kb1',
+            type: 'cognee',
+            name: 'Synced',
+            baseUrl: 'http://kb',
+            enabled: true,
+            sync: true,
+          },
+        ]),
+        datasetName: (ws: string, s: string) => `docmost_${ws}_${s}`,
+        search: jest.fn().mockResolvedValue([]),
+      });
+      const members = {
+        getUserSpaceIds: jest.fn().mockResolvedValue(['s1', 's2']),
+      };
+      const svc = makeService(
+        repo,
+        makeProvider(),
+        makeAnswer(),
+        makeAttachmentRepo(),
+        kb,
+        members,
+      );
+      await drain(
+        svc.streamSend({ chatId: 'c1', content: 'q' } as any, user, workspace),
+      );
+      const callArgs = (streamText as jest.Mock).mock.calls[0][0];
+
+      await callArgs.tools.search_synced.execute({ query: 'x' });
+      expect(kb.search).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'kb1' }),
+        'x',
+        { limit: 5, datasets: ['docmost_w1_s1', 'docmost_w1_s2'] },
+      );
+
+      // no memberships -> empty result, no upstream call
+      members.getUserSpaceIds.mockResolvedValue([]);
+      kb.search.mockClear();
+      const empty = await callArgs.tools.search_synced.execute({ query: 'x' });
+      expect(empty).toEqual({ source: 'Synced', results: [] });
+      expect(kb.search).not.toHaveBeenCalled();
     });
 
     it('merges referenced page context into the leading system prompt', async () => {

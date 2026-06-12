@@ -1,20 +1,25 @@
 import { AiIndexingService } from './ai-indexing.service';
 
-// chainable kysely stub for the workspace settings lookup in isEnabled()
-function dbReturning(settings: unknown) {
-  return {
-    selectFrom: () => ({
-      select: () => ({
-        where: () => ({
-          executeTakeFirst: async () => ({ settings }),
-        }),
+// chainable kysely stub: workspaces lookups return {settings}, pages lookups
+// return the given page row (or undefined).
+function dbReturning(settings: unknown, pageRow?: unknown) {
+  const chain = (result: unknown) => ({
+    select: () => ({
+      where: () => ({
+        executeTakeFirst: async () => result,
+        where: () => ({ executeTakeFirst: async () => result }),
       }),
     }),
+  });
+  return {
+    selectFrom: (table: string) =>
+      table === 'pages' ? chain(pageRow) : chain({ settings }),
   } as any;
 }
 
 describe('AiIndexingService', () => {
   let embeddingRepo: any;
+  let permRepo: any;
   let provider: any;
 
   beforeEach(() => {
@@ -23,6 +28,9 @@ describe('AiIndexingService', () => {
       deleteByWorkspace: jest.fn().mockResolvedValue(undefined),
       replacePageChunks: jest.fn().mockResolvedValue(undefined),
       listWorkspacePageIds: jest.fn().mockResolvedValue([]),
+    };
+    permRepo = {
+      hasRestrictedAncestor: jest.fn().mockResolvedValue(false),
     };
     provider = {
       resolveConfig: jest
@@ -34,8 +42,13 @@ describe('AiIndexingService', () => {
     };
   });
 
-  const make = (settings: unknown) =>
-    new AiIndexingService(dbReturning(settings), embeddingRepo, provider);
+  const make = (settings: unknown, pageRow?: unknown) =>
+    new AiIndexingService(
+      dbReturning(settings, pageRow),
+      embeddingRepo,
+      permRepo,
+      provider,
+    );
 
   describe('isEnabled', () => {
     it('is false when embeddings are not configured', async () => {
@@ -67,6 +80,20 @@ describe('AiIndexingService', () => {
       const svc = make({ ai: { search: true } });
       await svc.embedPages([], 'ws-1');
       expect(provider.embeddingModel).not.toHaveBeenCalled();
+    });
+
+    it('K4.2: drops restricted pages from the retrieval store instead of embedding', async () => {
+      permRepo.hasRestrictedAncestor.mockResolvedValue(true);
+      const svc = make(
+        { ai: { search: true } },
+        { id: 'p1', textContent: 'secret', spaceId: 's1', workspaceId: 'ws-1', deletedAt: null },
+      );
+
+      await svc.embedPages(['p1'], 'ws-1');
+
+      expect(permRepo.hasRestrictedAncestor).toHaveBeenCalledWith('p1');
+      expect(embeddingRepo.deleteByPageIds).toHaveBeenCalledWith(['p1']);
+      expect(embeddingRepo.replacePageChunks).not.toHaveBeenCalled();
     });
   });
 

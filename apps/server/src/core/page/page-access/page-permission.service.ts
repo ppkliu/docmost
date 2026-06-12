@@ -2,9 +2,16 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
 import { InjectKysely } from 'nestjs-kysely';
+import {
+  QueueJob,
+  QueueName,
+} from '../../../integrations/queue/constants';
 import { KyselyDB } from '@docmost/db/types/kysely.types';
 import { executeTx } from '@docmost/db/utils';
 import { Page, User } from '@docmost/db/types/entity.types';
@@ -45,6 +52,8 @@ export interface PageRestrictionInfo {
  */
 @Injectable()
 export class PagePermissionService {
+  private readonly logger = new Logger(PagePermissionService.name);
+
   constructor(
     @InjectKysely() private readonly db: KyselyDB,
     private readonly pagePermissionRepo: PagePermissionRepo,
@@ -52,7 +61,30 @@ export class PagePermissionService {
     private readonly userRepo: UserRepo,
     private readonly groupRepo: GroupRepo,
     private readonly spaceAbility: SpaceAbilityFactory,
+    @InjectQueue(QueueName.AI_QUEUE) private readonly aiQueue: Queue,
   ) {}
+
+  /**
+   * K3.3/K4.2: restriction changes re-enqueue indexing for the affected
+   * subtree — the indexer drops restricted pages from the retrieval store and
+   * re-embeds them once unrestricted. Best-effort; never blocks the mutation.
+   */
+  private async reindexSubtree(page: Page): Promise<void> {
+    try {
+      const subtreeIds = await this.pagePermissionRepo.getRestrictedSubtreeIds(
+        page.id,
+      );
+      const pageIds = subtreeIds.length > 0 ? subtreeIds : [page.id];
+      await this.aiQueue.add(QueueJob.GENERATE_PAGE_EMBEDDINGS, {
+        pageIds,
+        workspaceId: page.workspaceId,
+      });
+    } catch (err) {
+      this.logger.warn(
+        `Failed to enqueue re-index after restriction change on ${page.id}: ${(err as Error)?.message}`,
+      );
+    }
+  }
 
   async getPageOrThrow(pageId: string, workspaceId: string): Promise<Page> {
     const page = await this.pageRepo.findById(pageId);
@@ -169,12 +201,30 @@ export class PagePermissionService {
         trx,
       );
     });
+
+    // subtree is restricted now; the indexer evicts it from retrieval
+    await this.reindexSubtree(page);
   }
 
   /** Removes the restriction (and cascades its permission rows). */
   async unrestrict(page: Page, user: User): Promise<void> {
     await this.assertCanManage(page, user);
+    // compute the affected subtree while the restriction still exists
+    const subtreeIds = await this.pagePermissionRepo.getRestrictedSubtreeIds(
+      page.id,
+    );
     await this.pagePermissionRepo.deletePageAccess(page.id);
+
+    try {
+      await this.aiQueue.add(QueueJob.GENERATE_PAGE_EMBEDDINGS, {
+        pageIds: subtreeIds.length > 0 ? subtreeIds : [page.id],
+        workspaceId: page.workspaceId,
+      });
+    } catch (err) {
+      this.logger.warn(
+        `Failed to enqueue re-index after unrestrict on ${page.id}: ${(err as Error)?.message}`,
+      );
+    }
   }
 
   async addPermissions(

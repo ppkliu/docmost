@@ -51,7 +51,9 @@ function makeService(overrides: Record<string, any> = {}) {
       getPagePermissionsPaginated: jest
         .fn()
         .mockResolvedValue({ items: [], meta: {} }),
+      getRestrictedSubtreeIds: jest.fn().mockResolvedValue([]),
     },
+    aiQueue: { add: jest.fn().mockResolvedValue(undefined) },
     pageRepo: { findById: jest.fn().mockResolvedValue(PAGE) },
     userRepo: { findById: jest.fn().mockResolvedValue({ id: 'u2' }) },
     groupRepo: { findById: jest.fn().mockResolvedValue({ id: 'g1' }) },
@@ -70,6 +72,7 @@ function makeService(overrides: Record<string, any> = {}) {
     deps.userRepo as any,
     deps.groupRepo as any,
     deps.spaceAbility as any,
+    deps.aiQueue as any,
   );
   return { service, deps };
 }
@@ -201,6 +204,46 @@ describe('PagePermissionService.restrict', () => {
         }),
       ],
       undefined,
+    );
+  });
+
+  it('K3.3: re-enqueues subtree indexing on restrict and unrestrict', async () => {
+    const { service, deps } = makeService();
+    jest
+      .spyOn(dbUtils, 'executeTx')
+      .mockImplementation(async (_db: any, fn: any) => fn(undefined));
+    deps.permRepo.getRestrictedSubtreeIds.mockResolvedValue(['page-1', 'child-1']);
+
+    await service.restrict(PAGE, USER);
+    expect(deps.aiQueue.add).toHaveBeenCalledWith(
+      'generate-page-embeddings',
+      { pageIds: ['page-1', 'child-1'], workspaceId: 'ws-1' },
+    );
+
+    // unrestrict: subtree computed BEFORE the restriction row is deleted
+    deps.aiQueue.add.mockClear();
+    deps.permRepo.findPageAccessByPageId.mockResolvedValue({ id: 'access-1' });
+    deps.permRepo.getUserPageAccessLevel.mockResolvedValue({
+      hasDirectRestriction: true,
+      hasInheritedRestriction: false,
+      hasAnyRestriction: true,
+      canAccess: true,
+      canEdit: true,
+    });
+    const callOrder: string[] = [];
+    deps.permRepo.getRestrictedSubtreeIds.mockImplementation(async () => {
+      callOrder.push('subtree');
+      return ['page-1', 'child-1'];
+    });
+    deps.permRepo.deletePageAccess.mockImplementation(async () => {
+      callOrder.push('delete');
+    });
+
+    await service.unrestrict(PAGE, USER);
+    expect(callOrder).toEqual(['subtree', 'delete']);
+    expect(deps.aiQueue.add).toHaveBeenCalledWith(
+      'generate-page-embeddings',
+      { pageIds: ['page-1', 'child-1'], workspaceId: 'ws-1' },
     );
   });
 

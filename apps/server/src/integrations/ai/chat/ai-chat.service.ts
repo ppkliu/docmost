@@ -15,6 +15,7 @@ import {
 import { z } from 'zod';
 import { AiChatRepo } from '@docmost/db/repos/ai-chat/ai-chat.repo';
 import { AttachmentRepo } from '@docmost/db/repos/attachment/attachment.repo';
+import { SpaceMemberRepo } from '@docmost/db/repos/space/space-member.repo';
 import { AiProviderService, ResolvedAiConfig } from '../ai-provider.service';
 import { AiAnswerService } from '../ai-answer.service';
 import { AiKbService } from '../ai-kb.service';
@@ -56,6 +57,7 @@ export class AiChatService {
     private readonly aiAnswerService: AiAnswerService,
     private readonly aiKbService: AiKbService,
     private readonly attachmentRepo: AttachmentRepo,
+    private readonly spaceMemberRepo: SpaceMemberRepo,
   ) {}
 
   /** Public ownership check used by the upload endpoint. */
@@ -342,8 +344,23 @@ export class AiChatService {
         }),
         execute: async ({ query }) => {
           try {
+            // K4.1: synced connectors mirror docmost content — scope the
+            // search to datasets of spaces the caller belongs to
+            let datasets: string[] | undefined;
+            if (connector.sync && connector.type === 'cognee') {
+              const spaceIds = await this.spaceMemberRepo.getUserSpaceIds(
+                user.id,
+              );
+              if (spaceIds.length === 0) {
+                return { source: connector.name, results: [] };
+              }
+              datasets = spaceIds.map((id) =>
+                this.aiKbService.datasetName(workspace.id, id),
+              );
+            }
             const results = await this.aiKbService.search(connector, query, {
               limit: 5,
+              datasets,
             });
             return { source: connector.name, results };
           } catch (err) {

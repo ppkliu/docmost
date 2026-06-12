@@ -6,6 +6,7 @@ import {
   EmbeddingChunkInput,
   EmbeddingRepo,
 } from '@docmost/db/repos/embedding/embedding.repo';
+import { PagePermissionRepo } from '@docmost/db/repos/page/page-permission.repo';
 import { AiProviderService, ResolvedAiConfig } from './ai-provider.service';
 import { chunkText } from './embedding.util';
 
@@ -16,6 +17,7 @@ export class AiIndexingService {
   constructor(
     @InjectKysely() private readonly db: KyselyDB,
     private readonly embeddingRepo: EmbeddingRepo,
+    private readonly pagePermissionRepo: PagePermissionRepo,
     private readonly aiProviderService: AiProviderService,
   ) {}
 
@@ -63,6 +65,15 @@ export class AiIndexingService {
         .executeTakeFirst();
 
       if (!page || page.deletedAt) {
+        await this.embeddingRepo.deleteByPageIds([pageId]);
+        continue;
+      }
+
+      // K4.2: pages under an E7 restriction never enter the retrieval store —
+      // AI Answers / chat search filter by space membership only, which is
+      // coarser than page-level permissions. Restrict/unrestrict re-enqueues
+      // the subtree so this rule re-evaluates.
+      if (await this.pagePermissionRepo.hasRestrictedAncestor(page.id)) {
         await this.embeddingRepo.deleteByPageIds([pageId]);
         continue;
       }
