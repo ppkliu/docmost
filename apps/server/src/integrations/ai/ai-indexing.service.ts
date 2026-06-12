@@ -6,8 +6,7 @@ import {
   EmbeddingChunkInput,
   EmbeddingRepo,
 } from '@docmost/db/repos/embedding/embedding.repo';
-import { AiProviderService } from './ai-provider.service';
-import { EnvironmentService } from '../environment/environment.service';
+import { AiProviderService, ResolvedAiConfig } from './ai-provider.service';
 import { chunkText } from './embedding.util';
 
 @Injectable()
@@ -18,28 +17,42 @@ export class AiIndexingService {
     @InjectKysely() private readonly db: KyselyDB,
     private readonly embeddingRepo: EmbeddingRepo,
     private readonly aiProviderService: AiProviderService,
-    private readonly environmentService: EnvironmentService,
   ) {}
+
+  /** Resolves the effective AI config (workspace override over env) for a workspace. */
+  private async resolveWorkspaceConfig(
+    workspaceId: string,
+  ): Promise<ResolvedAiConfig> {
+    const ws = await this.db
+      .selectFrom('workspaces')
+      .select('settings')
+      .where('id', '=', workspaceId)
+      .executeTakeFirst();
+    return this.aiProviderService.resolveConfig((ws?.settings ?? null) as any);
+  }
 
   /** Embeddings run only when configured AND the workspace has AI Search on. */
   async isEnabled(workspaceId: string): Promise<boolean> {
-    if (!this.aiProviderService.isEmbeddingConfigured()) return false;
     const ws = await this.db
       .selectFrom('workspaces')
       .select('settings')
       .where('id', '=', workspaceId)
       .executeTakeFirst();
     const settings = (ws?.settings ?? {}) as { ai?: { search?: boolean } };
-    return settings.ai?.search === true;
+    if (settings.ai?.search !== true) return false;
+    return this.aiProviderService.isEmbeddingConfigured(
+      this.aiProviderService.resolveConfig((ws?.settings ?? null) as any),
+    );
   }
 
   async embedPages(pageIds: string[], workspaceId: string): Promise<void> {
     if (pageIds.length === 0) return;
     if (!(await this.isEnabled(workspaceId))) return;
 
-    const model = this.aiProviderService.embeddingModel();
-    const modelName = this.environmentService.getAiEmbeddingModel();
-    const modelDimensions = this.aiProviderService.embeddingDimension();
+    const cfg = await this.resolveWorkspaceConfig(workspaceId);
+    const model = this.aiProviderService.embeddingModel(cfg);
+    const modelName = cfg.embeddingModel;
+    const modelDimensions = this.aiProviderService.embeddingDimension(cfg);
 
     for (const pageId of pageIds) {
       const page = await this.db

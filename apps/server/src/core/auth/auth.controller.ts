@@ -26,6 +26,7 @@ import { AuthUser } from '../../common/decorators/auth-user.decorator';
 import { User, Workspace } from '@docmost/db/types/entity.types';
 import { AuthWorkspace } from '../../common/decorators/auth-workspace.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { stripWorkspaceSecrets } from '../../common/helpers/workspace-secrets';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { PasswordResetDto } from './dto/password-reset.dto';
 import { VerifyUserTokenDto } from './dto/verify-user-token.dto';
@@ -115,7 +116,7 @@ export class AuthController {
       await this.authService.setup(createAdminUserDto);
 
     this.setAuthCookie(res, authToken);
-    return workspace;
+    return stripWorkspaceSecrets(workspace);
   }
 
   @SkipThrottle({ [AUTH_THROTTLER]: true })

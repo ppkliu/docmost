@@ -211,6 +211,53 @@ export class WorkspaceRepo {
       .executeTakeFirst();
   }
 
+  /**
+   * Replaces `settings.ai.provider` with the given (already-merged) provider
+   * config. The caller is responsible for preserving secrets (e.g. keeping the
+   * existing apiKey when the form leaves it blank).
+   */
+  async updateAiProvider(
+    workspaceId: string,
+    provider: Record<string, unknown>,
+    trx?: KyselyTransaction,
+  ) {
+    const db = dbOrTx(this.db, trx);
+    return db
+      .updateTable('workspaces')
+      .set({
+        settings: sql`COALESCE(settings, '{}'::jsonb)
+                || jsonb_build_object('ai', COALESCE(settings->'ai', '{}'::jsonb)
+                || jsonb_build_object('provider', ${sql.lit(JSON.stringify(provider))}::jsonb))`,
+        updatedAt: new Date(),
+      })
+      .where('id', '=', workspaceId)
+      .returning(this.baseFields)
+      .executeTakeFirst();
+  }
+
+  /**
+   * Replaces `settings.ai.knowledgeBases` with the given (already-merged)
+   * connector list. Caller preserves secrets (encrypted apiKey values).
+   */
+  async updateAiKnowledgeBases(
+    workspaceId: string,
+    knowledgeBases: Record<string, unknown>[],
+    trx?: KyselyTransaction,
+  ) {
+    const db = dbOrTx(this.db, trx);
+    return db
+      .updateTable('workspaces')
+      .set({
+        settings: sql`COALESCE(settings, '{}'::jsonb)
+                || jsonb_build_object('ai', COALESCE(settings->'ai', '{}'::jsonb)
+                || jsonb_build_object('knowledgeBases', ${sql.lit(JSON.stringify(knowledgeBases))}::jsonb))`,
+        updatedAt: new Date(),
+      })
+      .where('id', '=', workspaceId)
+      .returning(this.baseFields)
+      .executeTakeFirst();
+  }
+
   async updateSharingSettings(
     workspaceId: string,
     prefKey: string,

@@ -19,6 +19,7 @@ import { KyselyDB, KyselyTransaction } from '@docmost/db/types/kysely.types';
 import { executeTx } from '@docmost/db/utils';
 import { InjectKysely } from 'nestjs-kysely';
 import { Feature } from '../../../common/features';
+import { stripWorkspaceSecrets } from '../../../common/helpers/workspace-secrets';
 import { User } from '@docmost/db/types/entity.types';
 import { GroupUserRepo } from '@docmost/db/repos/group/group-user.repo';
 import { GroupRepo } from '@docmost/db/repos/group/group.repo';
@@ -85,7 +86,7 @@ export class WorkspaceService {
       throw new NotFoundException('Workspace not found');
     }
 
-    return workspace;
+    return stripWorkspaceSecrets(workspace);
   }
 
   async getWorkspacePublicData(workspaceId: string) {
@@ -566,7 +567,7 @@ export class WorkspaceService {
     }
 
     const { licenseKey, ...rest } = workspace;
-    return rest;
+    return stripWorkspaceSecrets(rest);
   }
 
   async getWorkspaceUsers(

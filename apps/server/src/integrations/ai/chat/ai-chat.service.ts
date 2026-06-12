@@ -15,8 +15,9 @@ import {
 import { z } from 'zod';
 import { AiChatRepo } from '@docmost/db/repos/ai-chat/ai-chat.repo';
 import { AttachmentRepo } from '@docmost/db/repos/attachment/attachment.repo';
-import { AiProviderService } from '../ai-provider.service';
+import { AiProviderService, ResolvedAiConfig } from '../ai-provider.service';
 import { AiAnswerService } from '../ai-answer.service';
+import { AiKbService } from '../ai-kb.service';
 import { PaginationOptions } from '@docmost/db/pagination/pagination-options';
 import {
   AiChat,
@@ -53,6 +54,7 @@ export class AiChatService {
     private readonly aiChatRepo: AiChatRepo,
     private readonly aiProviderService: AiProviderService,
     private readonly aiAnswerService: AiAnswerService,
+    private readonly aiKbService: AiKbService,
     private readonly attachmentRepo: AttachmentRepo,
   ) {}
 
@@ -136,7 +138,8 @@ export class AiChatService {
     user: User,
     workspace: Workspace,
   ): AsyncGenerator<AiChatStreamEvent> {
-    if (!this.isConfigured()) {
+    const cfg = this.aiProviderService.resolveConfig(workspace.settings as any);
+    if (!this.aiProviderService.isConfigured(cfg)) {
       yield {
         type: 'error',
         message: 'AI is not configured on this server',
@@ -187,7 +190,7 @@ export class AiChatService {
     const history = await this.aiChatRepo.findMessages(chat.id);
     const system = await this.buildSystemPrompt(dto, user);
     const messages = this.toModelMessages(history);
-    const tools = this.buildTools(user, workspace);
+    const tools = this.buildTools(user, workspace, cfg);
 
     const toolCalls: Array<{
       id: string;
@@ -200,7 +203,7 @@ export class AiChatService {
 
     try {
       const result = streamText({
-        model: this.aiProviderService.completionModel(),
+        model: this.aiProviderService.completionModel(cfg),
         system,
         messages,
         tools: Object.keys(tools).length > 0 ? tools : undefined,
@@ -281,10 +284,14 @@ export class AiChatService {
    * offered when embeddings are configured; its results are scoped to the
    * caller's accessible spaces by AiAnswerService.
    */
-  private buildTools(user: User, workspace: Workspace): ToolSet {
+  private buildTools(
+    user: User,
+    workspace: Workspace,
+    cfg: ResolvedAiConfig,
+  ): ToolSet {
     const tools: ToolSet = {};
 
-    if (this.aiAnswerService.isConfigured()) {
+    if (this.aiAnswerService.isConfigured(cfg)) {
       tools.search_workspace = tool({
         description:
           'Semantic search over the wiki the user can access. Use it to ground answers in their pages before replying.',
@@ -292,10 +299,14 @@ export class AiChatService {
           query: z.string().describe('Natural-language search query'),
         }),
         execute: async ({ query }) => {
-          const { sources } = await this.aiAnswerService.retrieve(query, {
-            userId: user.id,
-            workspaceId: workspace.id,
-          });
+          const { sources } = await this.aiAnswerService.retrieve(
+            query,
+            {
+              userId: user.id,
+              workspaceId: workspace.id,
+            },
+            cfg,
+          );
           return {
             results: sources.map((s) => ({
               pageId: s.pageId,
@@ -304,6 +315,47 @@ export class AiChatService {
               similarity: Number(s.similarity.toFixed(3)),
             })),
           };
+        },
+      });
+    }
+
+    // K2: federated search over external knowledge bases (Cognee / LLM-Wiki /
+    // custom). One tool per enabled connector; failures are returned as data
+    // so one unreachable KB doesn't abort the chat turn.
+    const connectors = this.aiKbService
+      .getConnectors(workspace.settings as any)
+      .filter((kb) => kb.enabled);
+    for (const connector of connectors) {
+      const toolName = `search_${connector.name
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '_')
+        .replace(/^_+|_+$/g, '')
+        .slice(0, 40)}`;
+      if (tools[toolName]) continue; // duplicate sanitized names: first wins
+
+      tools[toolName] = tool({
+        description:
+          `Search the external knowledge base "${connector.name}" (${connector.type}). ` +
+          'Use it when the wiki itself may not contain the answer.',
+        inputSchema: z.object({
+          query: z.string().describe('Natural-language search query'),
+        }),
+        execute: async ({ query }) => {
+          try {
+            const results = await this.aiKbService.search(connector, query, {
+              limit: 5,
+            });
+            return { source: connector.name, results };
+          } catch (err) {
+            this.logger.warn(
+              `KB search failed (${connector.name}): ${(err as Error)?.message}`,
+            );
+            return {
+              source: connector.name,
+              error: 'knowledge base unreachable',
+              results: [],
+            };
+          }
         },
       });
     }
@@ -380,7 +432,8 @@ export class AiChatService {
     if (settings?.ai?.chat !== true) {
       throw new ForbiddenException('AI Chat is not enabled for this workspace');
     }
-    if (!this.isConfigured()) {
+    const cfg = this.aiProviderService.resolveConfig(workspace.settings as any);
+    if (!this.aiProviderService.isConfigured(cfg)) {
       throw new BadRequestException('AI is not configured on this server');
     }
   }

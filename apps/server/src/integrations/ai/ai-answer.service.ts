@@ -4,7 +4,7 @@ import { embed, streamText } from 'ai';
 import { KyselyDB } from '@docmost/db/types/kysely.types';
 import { SpaceMemberRepo } from '@docmost/db/repos/space/space-member.repo';
 import { EmbeddingRepo } from '@docmost/db/repos/embedding/embedding.repo';
-import { AiProviderService } from './ai-provider.service';
+import { AiProviderService, ResolvedAiConfig } from './ai-provider.service';
 
 export interface AiAnswerSource {
   pageId: string;
@@ -28,10 +28,10 @@ export class AiAnswerService {
     private readonly aiProviderService: AiProviderService,
   ) {}
 
-  isConfigured(): boolean {
+  isConfigured(cfg?: ResolvedAiConfig): boolean {
     return (
-      this.aiProviderService.isEmbeddingConfigured() &&
-      this.aiProviderService.isConfigured()
+      this.aiProviderService.isEmbeddingConfigured(cfg) &&
+      this.aiProviderService.isConfigured(cfg)
     );
   }
 
@@ -43,6 +43,7 @@ export class AiAnswerService {
   async retrieve(
     query: string,
     opts: { userId: string; workspaceId: string; spaceId?: string },
+    cfg?: ResolvedAiConfig,
   ): Promise<{ sources: AiAnswerSource[]; context: string }> {
     let spaceIds = await this.spaceMemberRepo.getUserSpaceIds(opts.userId);
     if (opts.spaceId) {
@@ -51,7 +52,7 @@ export class AiAnswerService {
     if (spaceIds.length === 0) return { sources: [], context: '' };
 
     const { embedding } = await embed({
-      model: this.aiProviderService.embeddingModel(),
+      model: this.aiProviderService.embeddingModel(cfg),
       value: query,
     });
 
@@ -147,8 +148,12 @@ export class AiAnswerService {
     };
   }
 
-  async *streamAnswer(query: string, context: string): AsyncGenerator<string> {
-    const model = this.aiProviderService.completionModel();
+  async *streamAnswer(
+    query: string,
+    context: string,
+    cfg?: ResolvedAiConfig,
+  ): AsyncGenerator<string> {
+    const model = this.aiProviderService.completionModel(cfg);
     const system =
       'You are a helpful assistant answering questions about a wiki. Use ONLY the provided context. ' +
       'If the answer is not contained in the context, say you do not know. ' +

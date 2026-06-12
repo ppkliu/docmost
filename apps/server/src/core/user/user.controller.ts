@@ -13,6 +13,7 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { AuthWorkspace } from '../../common/decorators/auth-workspace.decorator';
 import { User, Workspace } from '@docmost/db/types/entity.types';
 import { WorkspaceRepo } from '@docmost/db/repos/workspace/workspace.repo';
+import { stripWorkspaceSecrets } from '../../common/helpers/workspace-secrets';
 
 @UseGuards(JwtAuthGuard)
 @Controller('users')
@@ -34,10 +35,10 @@ export class UserController {
 
     const { licenseKey, ...rest } = workspace;
 
-    const workspaceInfo = {
+    const workspaceInfo = stripWorkspaceSecrets({
       ...rest,
       memberCount,
-    };
+    });
 
     return { user: authUser, workspace: workspaceInfo };
   }
