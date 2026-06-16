@@ -23,9 +23,10 @@
 
 ```bash
 cd docmost
-./pack-prod.sh                 # 用 package.json 的版本號(目前 0.90.1)
+./pack-prod.sh                 # 完整包,用 package.json 的版本號(目前 0.90.1)
 # 其他用法
 ./pack-prod.sh 1.2.0           # 指定版本標籤
+APP_ONLY=1 ./pack-prod.sh      # 只更新代碼:只打包 app image(更新包,小很多)
 SKIP_BUILD=1 ./pack-prod.sh    # 跳過 build,直接用本機既有的 app image
 DOCMOST_IMAGE=myrepo/docmost:rc1 ./pack-prod.sh   # 自訂 app image 名稱
 ```
@@ -69,7 +70,36 @@ nano .env                       # 填 POSTGRES_PASSWORD / APP_SECRET / APP_URL .
 - prod 會自動跑 DB migration,啟動後直接進 setup 建立第一個工作區/管理員。
 - 詳細部署說明見包內 `DEPLOY.md`。
 
-## 五、注意事項
+> **多個包要挑著載?** 用 `load-select.sh`(把它一起複製到目標機):掃描目錄裡的 `.tar.gz`、列選單、確認後自動辨識完整包/更新包/裸 image 並載入。
+> ```bash
+> ./load-select.sh /path/to/bundles     # 掃描 → 選擇 → 確認 → 載入
+> ```
+
+## 五、更新 production 代碼(只換 app,不動資料)
+
+prod 跑的是**預建 image**(原始碼已 build 進 image,不是掛載),所以「更新代碼」= 重出 app image。db / valkey 很少變動,因此用 **更新包** 只送 app image 即可,小很多。
+
+| 情境 | 建置機 | 目標機 | 送的東西 |
+|---|---|---|---|
+| 首次部署 | `./pack-prod.sh` | `./load.sh` → `./start.sh prod` | app + db + valkey |
+| **只更新代碼** | `APP_ONLY=1 ./pack-prod.sh` | `./update.sh <部署目錄>` | **只有 app image** |
+| 連 base image 也升版 | `./pack-prod.sh`(完整) | `./load.sh` → 重啟 | 全部 |
+
+**更新流程:**
+```bash
+# 建置機(改完代碼後)
+APP_ONLY=1 ./pack-prod.sh 0.90.2          # 產生 dist/docmost-prod-update-0.90.2.tar.gz
+
+# 目標機(把更新包複製過去)
+tar -xzf docmost-prod-update-0.90.2.tar.gz && cd docmost-prod-update-0.90.2
+./update.sh /path/to/your/deploy-dir       # 既有部署目錄(含 .env / data)
+```
+
+`update.sh` 會:`docker load` 新 app image → 更新部署目錄 `.env` 的 `DOCMOST_IMAGE` → 換上新 compose → `docker compose up -d`(**只重建 app 容器**,db/valkey 與資料保留)。因為 prod 是 `NODE_ENV=production`,**新版的 DB migration 會在啟動時自動套用**。
+
+**回滾**:保留上一版更新包,重跑 `./update.sh <部署目錄>` 即可換回舊 image。但若新版含破壞性 migration,回滾 image **不會**回滾 schema —— 更新前建議先 `pg_dump` 備份 DB。
+
+## 六、注意事項
 
 - **體積**:三個 image 解壓後約 1～2 GB,`.tar.gz` 視壓縮率而定;傳輸前確認目標機磁碟空間。
 - **架構需一致**:image 與目標機 CPU 架構要相同(x86_64 打的包不能在 arm64 跑)。需跨架構請在對應架構的機器上打包,或用 `docker buildx`。
