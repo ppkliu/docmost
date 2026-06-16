@@ -56,13 +56,17 @@ function makeService(opts: {
     ...opts.kbOverrides,
   };
   const queue = { add: jest.fn().mockResolvedValue(undefined) };
+  const workspaceRepo = {
+    updateAiKnowledgeBases: jest.fn().mockResolvedValue(undefined),
+  };
   const service = new KbSyncService(
     makeDb({ settings, pages: opts.pages, spaces: opts.spaces }),
     permRepo as any,
+    workspaceRepo as any,
     kb as any,
     queue as any,
   );
-  return { service, permRepo, kb, queue };
+  return { service, permRepo, kb, queue, workspaceRepo };
 }
 
 describe('KbSyncService.schedulePageSync', () => {
@@ -90,11 +94,13 @@ describe('KbSyncService.schedulePageSync', () => {
 
 describe('KbSyncService.syncSpace', () => {
   it('rebuilds the dataset: delete -> add syncable pages -> cognify once', async () => {
-    const { service, kb, permRepo } = makeService({
+    const { service, kb, permRepo, workspaceRepo } = makeService({
       pages: [
         { id: 'p1', title: 'Open', textContent: 'public text' },
         { id: 'p2', title: 'Secret', textContent: 'classified' },
         { id: 'p3', title: 'Empty', textContent: '' },
+        // H2.2: unreviewed agent submission stays out
+        { id: 'p4', title: 'Draft', textContent: 'unreviewed', reviewStatus: 'pending' },
       ],
     });
     permRepo.hasRestrictedAncestor.mockImplementation(
@@ -102,6 +108,14 @@ describe('KbSyncService.syncSpace', () => {
     );
 
     await service.syncSpace('kb1', WS, 's1');
+
+    // K3.4: success recorded on the connector
+    expect(workspaceRepo.updateAiKnowledgeBases).toHaveBeenCalledWith(
+      WS,
+      expect.arrayContaining([
+        expect.objectContaining({ id: 'kb1', lastError: null }),
+      ]),
+    );
 
     const dataset = 'docmost_ws1_s1';
     expect(kb.deleteDatasetByName).toHaveBeenCalledWith(
@@ -115,6 +129,7 @@ describe('KbSyncService.syncSpace', () => {
     expect(texts[0]).toContain('public text');
     expect(texts[0]).toContain('[docmost:page:p1]');
     expect(texts.join()).not.toContain('classified');
+    expect(texts.join()).not.toContain('unreviewed');
     expect(kb.cognify).toHaveBeenCalledWith(
       expect.objectContaining({ id: 'kb1' }),
       [dataset],
@@ -126,6 +141,21 @@ describe('KbSyncService.syncSpace', () => {
     kb.getConnectors.mockReturnValue([{ ...CONNECTOR, sync: false }]);
     await service.syncSpace('kb1', WS, 's1');
     expect(kb.deleteDatasetByName).not.toHaveBeenCalled();
+  });
+
+  it('K3.4: records the failure and rethrows for BullMQ retry', async () => {
+    const { service, workspaceRepo, kb } = makeService({ pages: [] });
+    kb.deleteDatasetByName.mockRejectedValue(new Error('cognee down'));
+
+    await expect(service.syncSpace('kb1', WS, 's1')).rejects.toThrow(
+      'cognee down',
+    );
+    expect(workspaceRepo.updateAiKnowledgeBases).toHaveBeenCalledWith(
+      WS,
+      expect.arrayContaining([
+        expect.objectContaining({ id: 'kb1', lastError: 'cognee down' }),
+      ]),
+    );
   });
 });
 
