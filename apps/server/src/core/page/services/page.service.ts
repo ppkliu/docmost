@@ -143,6 +143,7 @@ export class PageService {
       content,
       textContent,
       ydoc,
+      reviewStatus: createPageDto.requestReview ? 'pending' : null,
     });
 
     this.generalQueue

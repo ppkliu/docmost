@@ -1,7 +1,9 @@
 import { Module } from '@nestjs/common';
 import { PageService } from './services/page.service';
 import { PageController } from './page.controller';
+import { PageReviewController } from './page-review.controller';
 import { PageHistoryService } from './services/page-history.service';
+import { PageReviewService } from './services/page-review.service';
 import { TrashCleanupService } from './services/trash-cleanup.service';
 import { BacklinkService } from './services/backlink.service';
 import { StorageModule } from '../../integrations/storage/storage.module';
@@ -11,10 +13,11 @@ import { TransclusionModule } from './transclusion/transclusion.module';
 import { LabelModule } from '../label/label.module';
 
 @Module({
-  controllers: [PageController],
+  controllers: [PageController, PageReviewController],
   providers: [
     PageService,
     PageHistoryService,
+    PageReviewService,
     TrashCleanupService,
     BacklinkService,
   ],

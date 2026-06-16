@@ -185,6 +185,12 @@ export class McpService {
           parentPageId: z.string().optional(),
           content: z.string().optional(),
           format: z.enum(['markdown', 'html', 'json']).optional(),
+          requestReview: z
+            .boolean()
+            .optional()
+            .describe(
+              'H2: submit for review — the page stays out of AI indexing/KB sync until approved',
+            ),
         },
       },
       async ({
@@ -193,12 +199,14 @@ export class McpService {
         parentPageId,
         content,
         format,
+        requestReview,
       }: {
         spaceId: string;
         title?: string;
         parentPageId?: string;
         content?: string;
         format?: 'markdown' | 'html' | 'json';
+        requestReview?: boolean;
       }) => {
         // permission checks mirror PageController.create
         if (parentPageId) {
@@ -222,6 +230,7 @@ export class McpService {
           dto.content = content;
           dto.format = format ?? 'markdown';
         }
+        dto.requestReview = requestReview;
 
         const page = await this.pageService.create(user.id, workspace.id, dto);
         return toText({

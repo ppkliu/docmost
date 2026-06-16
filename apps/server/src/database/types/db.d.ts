@@ -315,6 +315,7 @@ export interface Pages {
   lastUpdatedById: string | null;
   parentPageId: string | null;
   position: string | null;
+  reviewStatus: string | null;
   slugId: string;
   spaceId: string;
   summary: string | null;

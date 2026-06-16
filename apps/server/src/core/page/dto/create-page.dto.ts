@@ -1,4 +1,5 @@
 import {
+  IsBoolean,
   IsIn,
   IsOptional,
   IsString,
@@ -32,4 +33,10 @@ export class CreatePageDto {
   @Transform(({ value }) => value?.toLowerCase() ?? 'json')
   @IsIn(['json', 'markdown', 'html'])
   format?: ContentFormat;
+
+  // H2: agent-submitted content lands as 'pending' and is excluded from AI
+  // indexing / KB sync until a reviewer approves it.
+  @IsOptional()
+  @IsBoolean()
+  requestReview?: boolean;
 }

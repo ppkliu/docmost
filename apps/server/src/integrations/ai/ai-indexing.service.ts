@@ -59,12 +59,25 @@ export class AiIndexingService {
     for (const pageId of pageIds) {
       const page = await this.db
         .selectFrom('pages')
-        .select(['id', 'textContent', 'spaceId', 'workspaceId', 'deletedAt'])
+        .select([
+          'id',
+          'textContent',
+          'spaceId',
+          'workspaceId',
+          'deletedAt',
+          'reviewStatus',
+        ])
         .where('id', '=', pageId)
         .where('workspaceId', '=', workspaceId)
         .executeTakeFirst();
 
       if (!page || page.deletedAt) {
+        await this.embeddingRepo.deleteByPageIds([pageId]);
+        continue;
+      }
+
+      // H2.2: unreviewed agent submissions stay out of retrieval until approved
+      if (page.reviewStatus === 'pending' || page.reviewStatus === 'rejected') {
         await this.embeddingRepo.deleteByPageIds([pageId]);
         continue;
       }

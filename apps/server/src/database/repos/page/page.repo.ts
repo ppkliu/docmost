@@ -31,6 +31,7 @@ export class PageRepo {
     'title',
     'icon',
     'summary',
+    'reviewStatus',
     'coverPhoto',
     'position',
     'parentPageId',
