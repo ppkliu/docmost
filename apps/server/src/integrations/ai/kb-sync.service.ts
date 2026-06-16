@@ -4,6 +4,7 @@ import { Queue } from 'bullmq';
 import { InjectKysely } from 'nestjs-kysely';
 import { KyselyDB } from '@docmost/db/types/kysely.types';
 import { PagePermissionRepo } from '@docmost/db/repos/page/page-permission.repo';
+import { WorkspaceRepo } from '@docmost/db/repos/workspace/workspace.repo';
 import { AiKbService, KbConnector } from './ai-kb.service';
 import { QueueJob, QueueName } from '../queue/constants';
 
@@ -28,9 +29,44 @@ export class KbSyncService {
   constructor(
     @InjectKysely() private readonly db: KyselyDB,
     private readonly pagePermissionRepo: PagePermissionRepo,
+    private readonly workspaceRepo: WorkspaceRepo,
     private readonly aiKbService: AiKbService,
     @InjectQueue(QueueName.AI_QUEUE) private readonly aiQueue: Queue,
   ) {}
+
+  /**
+   * K3.4: persists the sync outcome onto the connector record (read-fresh
+   * then write, best-effort — a concurrent admin edit may win).
+   */
+  private async recordSyncResult(
+    connectorId: string,
+    workspaceId: string,
+    error: string | null,
+  ): Promise<void> {
+    try {
+      const ws = await this.db
+        .selectFrom('workspaces')
+        .select('settings')
+        .where('id', '=', workspaceId)
+        .executeTakeFirst();
+      const stored =
+        ((ws?.settings as any)?.ai?.knowledgeBases as KbConnector[]) ?? [];
+      if (!stored.some((kb) => kb.id === connectorId)) return;
+      const next = stored.map((kb) =>
+        kb.id === connectorId
+          ? { ...kb, lastSyncAt: new Date().toISOString(), lastError: error }
+          : kb,
+      );
+      await this.workspaceRepo.updateAiKnowledgeBases(
+        workspaceId,
+        next as any,
+      );
+    } catch (err) {
+      this.logger.warn(
+        `Failed to record KB sync result: ${(err as Error)?.message}`,
+      );
+    }
+  }
 
   private async syncedConnectors(
     workspaceId: string,
@@ -134,12 +170,30 @@ export class KbSyncService {
     );
     if (!connector) return; // sync disabled/removed since scheduling
 
+    try {
+      await this.rebuildSpace(connector, workspaceId, spaceId);
+      await this.recordSyncResult(connectorId, workspaceId, null);
+    } catch (err) {
+      await this.recordSyncResult(
+        connectorId,
+        workspaceId,
+        ((err as Error)?.message ?? 'sync failed').slice(0, 300),
+      );
+      throw err; // keep BullMQ retry semantics
+    }
+  }
+
+  private async rebuildSpace(
+    connector: KbConnector,
+    workspaceId: string,
+    spaceId: string,
+  ): Promise<void> {
     const dataset = this.aiKbService.datasetName(workspaceId, spaceId);
     await this.aiKbService.deleteDatasetByName(connector, dataset);
 
     const pages = await this.db
       .selectFrom('pages')
-      .select(['id', 'title', 'textContent'])
+      .select(['id', 'title', 'textContent', 'reviewStatus'])
       .where('spaceId', '=', spaceId)
       .where('workspaceId', '=', workspaceId)
       .where('deletedAt', 'is', null)
@@ -149,6 +203,10 @@ export class KbSyncService {
     for (const page of pages) {
       const content = (page.textContent ?? '').trim();
       if (!content) continue;
+      // H2.2: unreviewed agent submissions never leave docmost
+      if (page.reviewStatus === 'pending' || page.reviewStatus === 'rejected') {
+        continue;
+      }
       // K4.2 rule: restricted content never leaves docmost
       if (await this.pagePermissionRepo.hasRestrictedAncestor(page.id)) {
         continue;

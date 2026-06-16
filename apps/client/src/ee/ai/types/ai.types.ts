@@ -96,6 +96,9 @@ export interface KbConnector {
   enabled: boolean;
   // K3: mirror docmost content into this KB (cognee only)
   sync?: boolean;
+  // K3.4: written by the sync pipeline after each space rebuild
+  lastSyncAt?: string;
+  lastError?: string | null;
   hasApiKey: boolean;
 }
 

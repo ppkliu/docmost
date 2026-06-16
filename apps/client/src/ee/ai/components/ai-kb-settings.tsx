@@ -270,8 +270,18 @@ export default function AiKbSettings() {
               {kb.type}
             </Badge>
             {kb.sync && (
-              <Badge size="xs" variant="light" color="grape">
-                {t("sync")}
+              <Badge
+                size="xs"
+                variant="light"
+                color={kb.lastError ? "red" : "grape"}
+                title={
+                  kb.lastError ||
+                  (kb.lastSyncAt &&
+                    `${t("Last sync")}: ${new Date(kb.lastSyncAt).toLocaleString()}`) ||
+                  undefined
+                }
+              >
+                {kb.lastError ? t("sync error") : t("sync")}
               </Badge>
             )}
             {kb.hasApiKey && (

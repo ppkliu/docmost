@@ -18,6 +18,9 @@ export interface KbConnector {
   enabled: boolean;
   /** K3: mirror docmost content into this KB (cognee only). */
   sync?: boolean;
+  /** K3.4: written by KbSyncService after each space rebuild. */
+  lastSyncAt?: string;
+  lastError?: string | null;
 }
 
 export interface KbConnectorMasked extends Omit<KbConnector, 'apiKey'> {
@@ -126,6 +129,8 @@ export class AiKbService {
         input.type === 'cognee'
           ? (input.sync ?? existing?.sync ?? false)
           : undefined,
+      lastSyncAt: existing?.lastSyncAt,
+      lastError: existing?.lastError,
     };
 
     if (existingIndex >= 0) {
