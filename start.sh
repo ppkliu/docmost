@@ -47,6 +47,8 @@ val(){ local v; v="$(getenv "$1")"; echo "${v:-$2}"; }
 
 APP_PORT="$(val "$APP_PORT_VAR" "$APP_PORT_DEF")"
 CLIENT_PORT="$(val DEV_CLIENT_HOST_PORT 5173)"   # dev 才用
+# dev 的互動前端是 Vite(CLIENT_PORT);後端 server(APP_PORT)在 dev 只提供 API。
+if [ "$MODE" = "dev" ]; then FRONT_PORT="$CLIENT_PORT"; else FRONT_PORT="$APP_PORT"; fi
 
 # ---- compose v1 不支援 name: 欄位,先提醒 ----
 if [ "$DC" = "docker-compose" ] && grep -q '^name:' "$COMPOSE_FILE"; then
@@ -69,13 +71,29 @@ fi
 bold "==> 啟動 Docmost [$MODE]  ($DC -f $COMPOSE_FILE --env-file $ENV_FILE)"
 "${DCX[@]}" up -d
 
+# ---- dev:手動套用 migration ----
+# prod(NODE_ENV=production)開機會自動 migrate;dev(development)不會,
+# 否則 DB 沒有任何表,會出現 relation "workspaces" does not exist。此步為 idempotent。
+if [ "$MODE" = "dev" ] && [ "$(val DEV_AUTO_MIGRATE true)" = "true" ]; then
+  bold "==> dev:套用資料庫 migration(migration:latest,idempotent)"
+  mig_ok=0
+  for ((i=0; i<10; i++)); do
+    if "${DCX[@]}" exec -T docmost-dev pnpm --filter ./apps/server run migration:latest; then
+      mig_ok=1; break
+    fi
+    ylw "   migration 尚未成功(DB 可能還沒就緒),3s 後重試 [$((i+1))/10]…"; sleep 3
+  done
+  [ "$mig_ok" = 1 ] || red "   migration 失敗;請查 db 服務與 DATABASE_URL,或手動:
+     ${DCX[*]} exec docmost-dev pnpm --filter ./apps/server run migration:latest"
+fi
+
 # ---- 等待前台 port 開啟 ----
 port_open(){ (exec 3<>"/dev/tcp/127.0.0.1/$1") 2>/dev/null && { exec 3>&- 3<&-; return 0; }; return 1; }
 TIMEOUT=$([ "$MODE" = "dev" ] && echo 120 || echo 60)   # dev 要編譯,等久一點
-bold "==> 等待前台 (127.0.0.1:$APP_PORT) 就緒,最多 ${TIMEOUT}s…"
+bold "==> 等待前台 (127.0.0.1:$FRONT_PORT) 就緒,最多 ${TIMEOUT}s…"
 ready=0
 for ((i=0; i<TIMEOUT; i+=3)); do
-  if port_open "$APP_PORT"; then ready=1; break; fi
+  if port_open "$FRONT_PORT"; then ready=1; break; fi
   sleep 3; printf '.'
 done
 echo
@@ -106,16 +124,16 @@ IP=$(hostname -I 2>/dev/null | awk '{print $1}')
 if [ "$ready" = "1" ]; then
   grn "================ Docmost 已啟動 [$MODE] ================"
   bold " 前台網址:"
-  echo  "   http://127.0.0.1:${APP_PORT}"
-  [ -n "$IP" ] && echo "   http://${IP}:${APP_PORT}   (區網)"
+  echo  "   http://127.0.0.1:${FRONT_PORT}"
+  [ -n "$IP" ] && echo "   http://${IP}:${FRONT_PORT}   (區網)"
   if [ "$MODE" = "dev" ]; then
-    echo "   Vite client:  http://127.0.0.1:${CLIENT_PORT}"
+    echo "   (dev 互動 UI = Vite ${FRONT_PORT};後端 API 在 http://127.0.0.1:${APP_PORT},不提供頁面)"
   fi
   echo " 容器內 app port: 3000"
   grn "======================================================="
 else
   red "================ 前台尚未就緒 [$MODE] ================="
-  red " 127.0.0.1:${APP_PORT} 在 ${TIMEOUT}s 內未開啟。"
+  red " 127.0.0.1:${FRONT_PORT} 在 ${TIMEOUT}s 內未開啟。"
   red " app 服務($APP_SVC)最後 40 行 log:"
   "${DCX[@]}" logs --tail=40 "$APP_SVC" 2>&1 | sed 's/^/   /' || true
   echo
