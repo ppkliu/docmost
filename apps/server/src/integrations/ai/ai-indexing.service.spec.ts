@@ -82,6 +82,18 @@ describe('AiIndexingService', () => {
       expect(provider.embeddingModel).not.toHaveBeenCalled();
     });
 
+    it('H2.2: keeps pending-review pages out of the retrieval store', async () => {
+      const svc = make(
+        { ai: { search: true } },
+        { id: 'p1', textContent: 'draft', spaceId: 's1', workspaceId: 'ws-1', deletedAt: null, reviewStatus: 'pending' },
+      );
+
+      await svc.embedPages(['p1'], 'ws-1');
+
+      expect(embeddingRepo.deleteByPageIds).toHaveBeenCalledWith(['p1']);
+      expect(embeddingRepo.replacePageChunks).not.toHaveBeenCalled();
+    });
+
     it('K4.2: drops restricted pages from the retrieval store instead of embedding', async () => {
       permRepo.hasRestrictedAncestor.mockResolvedValue(true);
       const svc = make(
