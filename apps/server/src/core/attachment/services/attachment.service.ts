@@ -27,6 +27,7 @@ import { InjectQueue } from '@nestjs/bullmq';
 import { QueueJob, QueueName } from '../../../integrations/queue/constants';
 import { Queue } from 'bullmq';
 import { createByteCountingStream } from '../../../common/helpers/utils';
+import { NetworkOrigin } from '../../../common/services/network-origin.service';
 
 @Injectable()
 export class AttachmentService {
@@ -48,6 +49,7 @@ export class AttachmentService {
     spaceId: string;
     workspaceId: string;
     attachmentId?: string;
+    origin?: NetworkOrigin;
   }) {
     const { filePromise, pageId, spaceId, userId, workspaceId } = opts;
     const preparedFile: PreparedFile = await prepareFile(filePromise, {
@@ -113,6 +115,7 @@ export class AttachmentService {
           spaceId,
           workspaceId,
           pageId,
+          origin: opts.origin,
         });
       }
 
@@ -266,6 +269,7 @@ export class AttachmentService {
     pageId?: string;
     spaceId?: string;
     aiChatId?: string;
+    origin?: NetworkOrigin;
     trx?: KyselyTransaction;
   }): Promise<Attachment> {
     const {
@@ -278,6 +282,7 @@ export class AttachmentService {
       pageId,
       spaceId,
       aiChatId,
+      origin,
       trx,
     } = opts;
     return this.attachmentRepo.insertAttachment(
@@ -294,6 +299,10 @@ export class AttachmentService {
         pageId: pageId,
         spaceId: spaceId,
         aiChatId: aiChatId,
+        originIp: origin?.originIp,
+        originNetwork: origin?.originNetwork,
+        originNetworkScope: origin?.originNetworkScope,
+        originRecordedAt: origin?.originRecordedAt,
       },
       trx,
     );
@@ -309,8 +318,9 @@ export class AttachmentService {
     userId: string;
     workspaceId: string;
     aiChatId?: string;
+    origin?: NetworkOrigin;
   }): Promise<Attachment> {
-    const { filePromise, userId, workspaceId, aiChatId } = opts;
+    const { filePromise, userId, workspaceId, aiChatId, origin } = opts;
     const preparedFile: PreparedFile = await prepareFile(filePromise, {
       skipBuffer: true,
     });
@@ -332,6 +342,7 @@ export class AttachmentService {
       userId,
       workspaceId,
       aiChatId,
+      origin,
     });
   }
 

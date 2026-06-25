@@ -30,6 +30,7 @@ import { FileInterceptor } from '../../../common/interceptors/file.interceptor';
 import { AttachmentService } from '../../../core/attachment/services/attachment.service';
 import { EnvironmentService } from '../../environment/environment.service';
 import { User, Workspace } from '@docmost/db/types/entity.types';
+import { NetworkOriginService } from '../../../common/services/network-origin.service';
 
 @UseGuards(JwtAuthGuard)
 @Controller('ai/chats')
@@ -40,6 +41,7 @@ export class AiChatController {
     private readonly aiChatService: AiChatService,
     private readonly attachmentService: AttachmentService,
     private readonly environmentService: EnvironmentService,
+    private readonly networkOriginService: NetworkOriginService,
   ) {}
 
   @HttpCode(HttpStatus.OK)
@@ -159,6 +161,7 @@ export class AiChatController {
       userId: user.id,
       workspaceId: workspace.id,
       aiChatId: chatId,
+      origin: this.networkOriginService.getRequestOrigin(req),
     });
 
     return res.send({

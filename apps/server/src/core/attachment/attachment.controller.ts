@@ -60,6 +60,7 @@ import {
   AUDIT_SERVICE,
   IAuditService,
 } from '../../integrations/audit/audit.service';
+import { NetworkOriginService } from '../../common/services/network-origin.service';
 
 @Controller()
 export class AttachmentController {
@@ -75,6 +76,7 @@ export class AttachmentController {
     private readonly environmentService: EnvironmentService,
     private readonly tokenService: TokenService,
     private readonly pageAccessService: PageAccessService,
+    private readonly networkOriginService: NetworkOriginService,
     @Inject(AUDIT_SERVICE) private readonly auditService: IAuditService,
   ) {}
 
@@ -137,6 +139,7 @@ export class AttachmentController {
         userId: user.id,
         workspaceId: workspace.id,
         attachmentId: attachmentId,
+        origin: this.networkOriginService.getRequestOrigin(req),
       });
 
       this.auditService.log({
@@ -202,6 +205,8 @@ export class AttachmentController {
       await this.pageAccessService.validateCanView(page, user);
     }
 
+    this.networkOriginService.assertCanDownloadAttachment(attachment, req);
+
     try {
       return await this.sendFileResponse(req, res, attachment, 'private');
     } catch (err) {
@@ -249,6 +254,8 @@ export class AttachmentController {
     ) {
       throw new NotFoundException('File not found');
     }
+
+    this.networkOriginService.assertCanDownloadAttachment(attachment, req);
 
     try {
       return await this.sendFileResponse(req, res, attachment, 'public');
