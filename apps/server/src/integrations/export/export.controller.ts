@@ -7,6 +7,7 @@ import {
   Inject,
   NotFoundException,
   Post,
+  Req,
   Res,
   UseGuards,
 } from '@nestjs/common';
@@ -22,7 +23,7 @@ import {
   SpaceCaslAction,
   SpaceCaslSubject,
 } from '../../core/casl/interfaces/space-ability.type';
-import { FastifyReply } from 'fastify';
+import { FastifyReply, FastifyRequest } from 'fastify';
 import { getExportExtension } from './utils';
 import {
   getMimeType,
@@ -35,6 +36,7 @@ import {
   AUDIT_SERVICE,
   IAuditService,
 } from '../../integrations/audit/audit.service';
+import { NetworkOriginService } from '../../common/services/network-origin.service';
 
 @Controller()
 export class ExportController {
@@ -43,6 +45,7 @@ export class ExportController {
     private readonly pageRepo: PageRepo,
     private readonly spaceAbility: SpaceAbilityFactory,
     private readonly pageAccessService: PageAccessService,
+    private readonly networkOriginService: NetworkOriginService,
     @Inject(AUDIT_SERVICE) private readonly auditService: IAuditService,
   ) {}
 
@@ -52,6 +55,7 @@ export class ExportController {
   async exportPage(
     @Body() dto: ExportPageDto,
     @AuthUser() user: User,
+    @Req() req: FastifyRequest,
     @Res() res: FastifyReply,
   ) {
     const page = await this.pageRepo.findById(dto.pageId, {
@@ -63,6 +67,7 @@ export class ExportController {
     }
 
     await this.pageAccessService.validateCanView(page, user);
+    this.networkOriginService.assertCanExportPage(page, req);
 
     const result = await this.exportService.exportPages(
       dto.pageId,
@@ -70,6 +75,8 @@ export class ExportController {
       dto.includeAttachments,
       dto.includeChildren,
       user.id,
+      false,
+      req,
     );
 
     this.auditService.log({
@@ -121,6 +128,7 @@ export class ExportController {
   async exportSpace(
     @Body() dto: ExportSpaceDto,
     @AuthUser() user: User,
+    @Req() req: FastifyRequest,
     @Res() res: FastifyReply,
   ) {
     const ability = await this.spaceAbility.createForUser(user, dto.spaceId);
@@ -133,6 +141,8 @@ export class ExportController {
       dto.format,
       dto.includeAttachments,
       user.id,
+      false,
+      req,
     );
 
     this.auditService.log({

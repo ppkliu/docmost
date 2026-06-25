@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   Logger,
   NotFoundException,
@@ -38,8 +39,15 @@ import {
   getProsemirrorContent,
 } from '../../common/helpers/prosemirror/utils';
 import { htmlToMarkdown } from '@docmost/editor-ext';
+import { FastifyRequest } from 'fastify';
+import { NetworkOriginService } from '../../common/services/network-origin.service';
 
-type AllowedAttachment = { id: string; fileName: string; filePath: string };
+type AllowedAttachment = {
+  id: string;
+  fileName: string;
+  filePath: string;
+  originNetwork: string | null;
+};
 
 @Injectable()
 export class ExportService {
@@ -52,6 +60,7 @@ export class ExportService {
     private readonly storageService: StorageService,
     private readonly environmentService: EnvironmentService,
     private readonly domainService: DomainService,
+    private readonly networkOriginService: NetworkOriginService,
   ) {}
 
   async exportPage(format: string, page: Page, singlePage?: boolean) {
@@ -109,6 +118,7 @@ export class ExportService {
     includeChildren: boolean,
     userId?: string,
     ignorePermissions = false,
+    req?: FastifyRequest,
   ) {
     let pages: Page[];
 
@@ -143,6 +153,10 @@ export class ExportService {
       }
     }
 
+    if (req) {
+      this.assertPagesAllowedByNetwork(pages, req);
+    }
+
     const parentPageIndex = pages.findIndex((obj) => obj.id === pageId);
 
     //After filtering by permissions, if the root page itself is not accessible to the user, findIndex returns -1
@@ -171,6 +185,7 @@ export class ExportService {
       baseUrl,
       userId,
       ignorePermissions,
+      req,
     );
 
     const zipFile = zip.generateNodeStream({
@@ -188,6 +203,7 @@ export class ExportService {
     includeAttachments: boolean,
     userId?: string,
     ignorePermissions = false,
+    req?: FastifyRequest,
   ) {
     const space = await this.db
       .selectFrom('spaces')
@@ -211,6 +227,7 @@ export class ExportService {
         'pages.parentPageId',
         'pages.spaceId',
         'pages.workspaceId',
+        'pages.originNetwork',
         'pages.createdAt',
         'pages.updatedAt',
       ])
@@ -230,6 +247,10 @@ export class ExportService {
       }
     }
 
+    if (req) {
+      this.assertPagesAllowedByNetwork(pages as Page[], req);
+    }
+
     const tree = buildTree(pages as Page[]);
 
     const baseUrl = await this.getWorkspaceBaseUrl(pages[0].workspaceId);
@@ -243,6 +264,7 @@ export class ExportService {
       baseUrl,
       userId,
       ignorePermissions,
+      req,
     );
 
     const zipFile = zip.generateNodeStream({
@@ -267,6 +289,7 @@ export class ExportService {
     baseUrl: string,
     userId?: string,
     ignorePermissions = false,
+    req?: FastifyRequest,
   ): Promise<void> {
     const slugIdToPath: Record<string, string> = {};
     const pageIdToFilePath: Record<string, string> = {};
@@ -279,6 +302,10 @@ export class ExportService {
     const allowedAttachments = includeAttachments
       ? await this.resolveAccessibleAttachments(tree, userId, ignorePermissions)
       : new Map<string, AllowedAttachment>();
+
+    if (req && includeAttachments) {
+      this.assertAttachmentsAllowedByNetwork(allowedAttachments, req);
+    }
 
     const stack: { folder: JSZip; parentPageId: string | null }[] = [
       { folder: zip, parentPageId: null },
@@ -401,7 +428,7 @@ export class ExportService {
 
     const attachments = await this.db
       .selectFrom('attachments')
-      .select(['id', 'fileName', 'filePath', 'pageId'])
+      .select(['id', 'fileName', 'filePath', 'pageId', 'originNetwork'])
       .where('id', 'in', [...allAttachmentIds])
       .where('spaceId', '=', spaceId)
       .execute();
@@ -429,6 +456,37 @@ export class ExportService {
     }
 
     return new Map(visible.map((a) => [a.id, a]));
+  }
+
+  private assertPagesAllowedByNetwork(
+    pages: Pick<Page, 'originNetwork'>[],
+    req: FastifyRequest,
+  ): void {
+    const allowed = this.networkOriginService.filterAllowedPages(
+      pages as Page[],
+      req,
+    );
+    if (allowed.length !== pages.length) {
+      throw new ForbiddenException(
+        'Network origin does not allow exporting one or more pages',
+      );
+    }
+  }
+
+  private assertAttachmentsAllowedByNetwork(
+    attachments: Map<string, AllowedAttachment>,
+    req: FastifyRequest,
+  ): void {
+    const values = [...attachments.values()];
+    const allowed = this.networkOriginService.filterAllowedAttachments(
+      values as any[],
+      req,
+    );
+    if (allowed.length !== values.length) {
+      throw new ForbiddenException(
+        'Network origin does not allow exporting one or more attachments',
+      );
+    }
   }
 
   async turnPageMentionsToLinks(
