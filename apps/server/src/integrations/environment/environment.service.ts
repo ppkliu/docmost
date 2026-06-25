@@ -362,4 +362,58 @@ export class EnvironmentService {
       .map((o) => o.trim())
       .filter(Boolean);
   }
+
+  getInternalCidrs(): string[] {
+    const raw = this.configService.get<string>(
+      'DOCMOST_INTERNAL_CIDRS',
+      '100.0.0.0/8',
+    );
+    return raw
+      .split(',')
+      .map((cidr) => cidr.trim())
+      .filter(Boolean);
+  }
+
+  getOriginNetworkMaskV4(): number {
+    return this.clampCidrMask(
+      parseInt(
+        this.configService.get<string>('DOCMOST_ORIGIN_NETWORK_MASK_V4', '24'),
+        10,
+      ),
+      32,
+      24,
+    );
+  }
+
+  getOriginNetworkMaskV6(): number {
+    return this.clampCidrMask(
+      parseInt(
+        this.configService.get<string>('DOCMOST_ORIGIN_NETWORK_MASK_V6', '64'),
+        10,
+      ),
+      128,
+      64,
+    );
+  }
+
+  getUnknownOriginPolicy(): 'allow' | 'deny' {
+    const policy = this.configService
+      .get<string>('DOCMOST_UNKNOWN_ORIGIN_POLICY', 'allow')
+      .toLowerCase();
+    return policy === 'deny' ? 'deny' : 'allow';
+  }
+
+  getTrustProxy(): boolean {
+    return (
+      this.configService.get<string>('TRUST_PROXY', 'false').toLowerCase() ===
+      'true'
+    );
+  }
+
+  private clampCidrMask(value: number, max: number, fallback: number): number {
+    if (!Number.isInteger(value) || value < 0 || value > max) {
+      return fallback;
+    }
+    return value;
+  }
 }

@@ -5,6 +5,7 @@ import { validate } from './environment.validation';
 import { envPath } from '../../common/helpers';
 import { DomainService } from './domain.service';
 import { LicenseCheckService } from './license-check.service';
+import { NetworkOriginService } from '../../common/services/network-origin.service';
 
 @Global()
 @Module({
@@ -16,7 +17,17 @@ import { LicenseCheckService } from './license-check.service';
       validate,
     }),
   ],
-  providers: [EnvironmentService, DomainService, LicenseCheckService],
-  exports: [EnvironmentService, DomainService, LicenseCheckService],
+  providers: [
+    EnvironmentService,
+    DomainService,
+    LicenseCheckService,
+    NetworkOriginService,
+  ],
+  exports: [
+    EnvironmentService,
+    DomainService,
+    LicenseCheckService,
+    NetworkOriginService,
+  ],
 })
 export class EnvironmentModule {}
