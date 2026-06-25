@@ -8,6 +8,7 @@ import {
   Inject,
   NotFoundException,
   Post,
+  Req,
   UseGuards,
 } from '@nestjs/common';
 import { PageService } from './services/page.service';
@@ -52,6 +53,8 @@ import {
   IAuditService,
 } from '../../integrations/audit/audit.service';
 import { getPageTitle } from '../../common/helpers';
+import { FastifyRequest } from 'fastify';
+import { NetworkOriginService } from '../../common/services/network-origin.service';
 
 @UseGuards(JwtAuthGuard)
 @Controller('pages')
@@ -64,6 +67,7 @@ export class PageController {
     private readonly pageAccessService: PageAccessService,
     private readonly backlinkService: BacklinkService,
     private readonly labelService: LabelService,
+    private readonly networkOriginService: NetworkOriginService,
     @Inject(AUDIT_SERVICE) private readonly auditService: IAuditService,
   ) {}
 
@@ -201,6 +205,7 @@ export class PageController {
   @Post('create')
   async create(
     @Body() createPageDto: CreatePageDto,
+    @Req() req: FastifyRequest,
     @AuthUser() user: User,
     @AuthWorkspace() workspace: Workspace,
   ) {
@@ -232,6 +237,7 @@ export class PageController {
       user.id,
       workspace.id,
       createPageDto,
+      this.networkOriginService.getRequestOrigin(req),
     );
 
     const { canEdit, hasRestriction } =
@@ -622,7 +628,11 @@ export class PageController {
 
   @HttpCode(HttpStatus.OK)
   @Post('duplicate')
-  async duplicatePage(@Body() dto: DuplicatePageDto, @AuthUser() user: User) {
+  async duplicatePage(
+    @Body() dto: DuplicatePageDto,
+    @Req() req: FastifyRequest,
+    @AuthUser() user: User,
+  ) {
     const copiedPage = await this.pageRepo.findById(dto.pageId);
     if (!copiedPage) {
       throw new NotFoundException('Page to copy not found');
@@ -653,6 +663,7 @@ export class PageController {
         copiedPage,
         dto.spaceId,
         user,
+        this.networkOriginService.getRequestOrigin(req),
       );
 
       this.auditService.log({
@@ -684,6 +695,7 @@ export class PageController {
         copiedPage,
         undefined,
         user,
+        this.networkOriginService.getRequestOrigin(req),
       );
 
       this.auditService.log({
