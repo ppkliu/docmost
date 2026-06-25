@@ -89,6 +89,10 @@ export interface Attachments {
   fileSize: Int8 | null;
   id: Generated<string>;
   mimeType: string | null;
+  originIp: string | null;
+  originNetwork: string | null;
+  originNetworkScope: string | null;
+  originRecordedAt: Timestamp | null;
   pageId: string | null;
   spaceId: string | null;
   textContent: string | null;
@@ -313,6 +317,10 @@ export interface Pages {
   id: Generated<string>;
   isLocked: Generated<boolean>;
   lastUpdatedById: string | null;
+  originIp: string | null;
+  originNetwork: string | null;
+  originNetworkScope: string | null;
+  originRecordedAt: Timestamp | null;
   parentPageId: string | null;
   position: string | null;
   reviewStatus: string | null;
