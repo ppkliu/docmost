@@ -58,12 +58,22 @@ fi
 
 DCX=($DC --env-file "$ENV_FILE" -f "$COMPOSE_FILE")
 
-# ---- prod:image 不存在就先 build ----
+# ---- prod:確保 image 存在(順序:本地 → pull → 用 Dockerfile build)----
 if [ "$MODE" = "prod" ]; then
   IMG="$(val DOCMOST_IMAGE agentwiki-docmost:latest)"
-  if ! docker image inspect "$IMG" >/dev/null 2>&1; then
-    ylw "找不到映像 $IMG,開始 build(第一次較久)…"
+  if docker image inspect "$IMG" >/dev/null 2>&1; then
+    : # 本地已有,直接用
+  elif docker pull "$IMG" >/dev/null 2>&1; then
+    grn "已 pull 映像 $IMG"
+  elif [ -f Dockerfile ]; then
+    ylw "本地/registry 都沒有 $IMG,改用 Dockerfile build(第一次較久)…"
     docker build -t "$IMG" .
+  else
+    red "找不到映像 $IMG,且無法 pull、本地也沒有 Dockerfile 可 build。請任選一種:"
+    echo "  A) 用官方映像:在 $ENV_FILE 設 DOCMOST_IMAGE=docmost/docmost:latest 後重跑(會自動 pull)"
+    echo "  B) 用打包映像:在建置機 ./pack-prod.sh 產生 tar.gz → FTP → 本機 docker load 後重跑"
+    echo "  C) 自行 build:把 Dockerfile + 完整原始碼放到此目錄再重跑"
+    exit 1
   fi
 fi
 

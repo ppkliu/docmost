@@ -4,7 +4,7 @@ services:
       context: .
       dockerfile: Dockerfile
     #image: docmost/docmost:latest
-    container_name: mydocmost
+    container_name: mydocmost-normal
     depends_on:
       - db
       - valkey
@@ -18,6 +18,7 @@ services:
 
   db:
     image: pgvector/pgvector:0.8.2-pg18-trixie
+    container_name: mydocmost-normal-db
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
@@ -30,6 +31,7 @@ services:
 
   valkey:
     image: valkey/valkey:9.1-alpine3.23
+    container_name: mydocmost-normal-cache
     command: ["valkey-server", "--appendonly", "yes", "--maxmemory-policy", "noeviction"]
     restart: unless-stopped
     volumes:
