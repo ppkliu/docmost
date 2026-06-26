@@ -32,8 +32,8 @@ const LOCALE_MAP: Record<string, Locale> = {
 };
 
 export function getDateFnsLocale(language?: string): Locale {
-  const lang = language ?? i18n.language ?? "en-US";
-  return LOCALE_MAP[lang] ?? LOCALE_MAP[lang.split("-")[0]] ?? enUS;
+  const lang = language ?? i18n.language ?? "zh-CN";
+  return LOCALE_MAP[lang] ?? LOCALE_MAP[lang.split("-")[0]] ?? zhCN;
 }
 
 export function useDateFnsLocale(): Locale {
