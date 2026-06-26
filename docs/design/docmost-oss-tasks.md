@@ -100,6 +100,11 @@ Legend: ✅ done & verified · 🟡 partial · ⬜ todo
 > noted in their own design docs/manuals link back here.
 
 ### Needs implementation
+- ⬜ **Network-origin permissions for page/attachment sensitive output** — record page/attachment
+  creation origin network; after existing user/page/space permission passes, allow
+  download/export/printPDF from the 100 internal network or from the same origin network only.
+  Dedicated design and tracker: [docmost-network-origin-permissions-design.md](./docmost-network-origin-permissions-design.md) ·
+  [docmost-network-origin-permissions-todo.md](./docmost-network-origin-permissions-todo.md).
 - ⬜ **H2 phase 1** review queue — `pages.reviewStatus` (pending/approved/rejected), `requestReview` on REST/MCP create, indexing/sync exclusion for pending pages, `POST /pages/review-queue` + `POST /pages/review` (approve|reject), client queue page + editor badge, skills-recipe update. Tasks H2.1–H2.5 in [docmost-hermes-governance-design.md](./docmost-hermes-governance-design.md). Until then: phase-0 `needs-review` label convention.
 - ⬜ **K3.4 full sync status** — persist `lastSyncAt`/`lastError` per connector and show on the KB card (today: log lines + the "sync" badge only).
 - ⬜ **K3 incremental upserts** — optimization over the v1 rebuild-per-space strategy ([design §6](./docmost-kb-federation-design.md)); also fixes the hard-delete residue (a hard-deleted page's content lingers in the space dataset until the next rebuild trigger).
