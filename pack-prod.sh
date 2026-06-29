@@ -124,7 +124,12 @@ cd "$(dirname "$0")"
 echo "==> docker load images.tar"
 docker load -i images.tar
 [ -f .env ] || { cp .env.example .env; echo "==> 已建立 .env(請填密碼/網域等)"; }
-grep -q '^DOCMOST_IMAGE=' .env || cat image.env >> .env
+NEWTAG=$(grep '^DOCMOST_IMAGE=' image.env | cut -d= -f2-)
+if grep -q '^DOCMOST_IMAGE=' .env; then
+  sed -i "s|^DOCMOST_IMAGE=.*|DOCMOST_IMAGE=${NEWTAG}|" .env
+else
+  echo "DOCMOST_IMAGE=${NEWTAG}" >> .env
+fi
 echo
 echo "下一步:"
 echo "  1) 編輯 .env(POSTGRES_PASSWORD / APP_SECRET / APP_URL ...)"

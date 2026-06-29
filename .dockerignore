@@ -4,3 +4,11 @@ dist
 /data
 .env*
 .nx
+bak
+coverage
+.nyc_output
+logs
+*.log
+.agents
+.codex
+.playwright-mcp
