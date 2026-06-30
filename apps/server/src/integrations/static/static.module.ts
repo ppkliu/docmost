@@ -34,6 +34,7 @@ export class StaticModule implements OnModuleInit {
       const configString = {
         ENV: this.environmentService.getNodeEnv(),
         APP_URL: this.environmentService.getAppUrl(),
+        APP_NAME: process.env.APP_NAME || undefined,
         CLOUD: this.environmentService.isCloud(),
         FILE_UPLOAD_SIZE_LIMIT:
           this.environmentService.getFileUploadSizeLimit(),

@@ -1,4 +1,5 @@
 import { Affix, Button } from "@mantine/core";
+import { getAppName, getAppUrl } from "@/lib/config.ts";
 
 export default function ShareBranding() {
   return (
@@ -7,9 +8,9 @@ export default function ShareBranding() {
         variant="default"
         component="a"
         target="_blank"
-        href="https://docmost.com?ref=public-share"
+        href={getAppUrl()}
       >
-        Powered by Docmost
+        Powered by {getAppName()}
       </Button>
     </Affix>
   );

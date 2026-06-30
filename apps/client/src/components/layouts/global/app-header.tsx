@@ -14,6 +14,7 @@ import { Link, useLocation } from "react-router-dom";
 import { IconSparkles } from "@tabler/icons-react";
 import useToggleAside from "@/hooks/use-toggle-aside.tsx";
 import APP_ROUTE from "@/lib/app-route.ts";
+import { getAppName } from "@/lib/config.ts";
 import { useAtom } from "jotai";
 import {
   desktopSidebarAtom,
@@ -84,11 +85,11 @@ export function AppHeader() {
             />
           </Tooltip>
 
-          <Link to="/home" className={classes.brand} aria-label="Docmost">
+          <Link to="/home" className={classes.brand} aria-label={getAppName()}>
             <Box hiddenFrom="sm" className={classes.brandIcon}>
               <img
                 src="/icons/favicon-32x32.png"
-                alt="Docmost"
+                alt={getAppName()}
                 width={22}
                 height={22}
               />
@@ -99,7 +100,7 @@ export function AppHeader() {
               style={{ userSelect: "none" }}
               visibleFrom="sm"
             >
-              Docmost
+              {getAppName()}
             </Text>
           </Link>
 
