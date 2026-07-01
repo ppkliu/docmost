@@ -1,7 +1,6 @@
 import {
   ActionIcon,
   Badge,
-  Box,
   Group,
   Text,
   Tooltip,
@@ -86,19 +85,10 @@ export function AppHeader() {
           </Tooltip>
 
           <Link to="/home" className={classes.brand} aria-label={getAppName()}>
-            <Box hiddenFrom="sm" className={classes.brandIcon}>
-              <img
-                src="/icons/favicon-32x32.png"
-                alt={getAppName()}
-                width={22}
-                height={22}
-              />
-            </Box>
             <Text
               size="lg"
               fw={600}
               style={{ userSelect: "none" }}
-              visibleFrom="sm"
             >
               {getAppName()}
             </Text>
