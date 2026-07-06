@@ -30,6 +30,7 @@ import {
   AUDIT_SERVICE,
   IAuditService,
 } from '../../integrations/audit/audit.service';
+import { NetworkOriginService } from '../../common/services/network-origin.service';
 
 @Controller()
 export class ImportController {
@@ -39,6 +40,7 @@ export class ImportController {
     private readonly importService: ImportService,
     private readonly spaceAbility: SpaceAbilityFactory,
     private readonly environmentService: EnvironmentService,
+    private readonly networkOriginService: NetworkOriginService,
     @Inject(AUDIT_SERVICE) private readonly auditService: IAuditService,
   ) {}
 
@@ -90,11 +92,13 @@ export class ImportController {
       throw new ForbiddenException();
     }
 
+    const origin = this.networkOriginService.getRequestOrigin(req);
     const createdPage = await this.importService.importPage(
       file,
       user.id,
       spaceId,
       workspace.id,
+      origin,
     );
 
     const ext = path.extname(file.filename).toLowerCase();
@@ -189,12 +193,14 @@ export class ImportController {
       },
     });
 
+    const origin = this.networkOriginService.getRequestOrigin(req);
     return this.importService.importZip(
       file,
       source,
       user.id,
       spaceId,
       workspace.id,
+      origin,
     );
   }
 
@@ -258,11 +264,13 @@ export class ImportController {
       throw new ForbiddenException();
     }
 
+    const origin = this.networkOriginService.getRequestOrigin(req);
     const fileTask = await this.importService.importBulkFiles({
       files,
       userId: user.id,
       spaceId,
       workspaceId: workspace.id,
+      origin,
     });
 
     this.auditService.log({

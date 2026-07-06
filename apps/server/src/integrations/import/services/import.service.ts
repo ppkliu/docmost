@@ -34,6 +34,10 @@ import { ModuleRef } from '@nestjs/core';
 import { load } from 'cheerio';
 import { normalizeImportHtml } from '../utils/import-formatter';
 import * as mammoth from 'mammoth';
+import {
+  NetworkOrigin,
+  originToFileTaskMetadata,
+} from '../../../common/services/network-origin.service';
 
 @Injectable()
 export class ImportService {
@@ -53,6 +57,7 @@ export class ImportService {
     userId: string,
     spaceId: string,
     workspaceId: string,
+    origin?: NetworkOrigin,
   ) {
     const file = await filePromise;
     const fileBuffer = await file.toBuffer();
@@ -126,6 +131,10 @@ export class ImportService {
           creatorId: userId,
           workspaceId: workspaceId,
           lastUpdatedById: userId,
+          originIp: origin?.originIp,
+          originNetwork: origin?.originNetwork,
+          originNetworkScope: origin?.originNetworkScope,
+          originRecordedAt: origin?.originRecordedAt,
         });
 
         this.logger.debug(
@@ -294,6 +303,7 @@ export class ImportService {
     userId: string,
     spaceId: string,
     workspaceId: string,
+    origin?: NetworkOrigin,
   ) {
     const file = await filePromise;
     const fileExtension = path.extname(file.filename).toLowerCase();
@@ -326,6 +336,7 @@ export class ImportService {
         creatorId: userId,
         spaceId: spaceId,
         workspaceId: workspaceId,
+        metadata: originToFileTaskMetadata(origin),
       })
       .returningAll()
       .executeTakeFirst();
@@ -348,8 +359,9 @@ export class ImportService {
     userId: string;
     spaceId: string;
     workspaceId: string;
+    origin?: NetworkOrigin;
   }) {
-    const { files, userId, spaceId, workspaceId } = opts;
+    const { files, userId, spaceId, workspaceId, origin } = opts;
 
     const zipBuffer = await buildBulkImportZip(files);
 
@@ -373,6 +385,7 @@ export class ImportService {
         creatorId: userId,
         spaceId: spaceId,
         workspaceId: workspaceId,
+        metadata: originToFileTaskMetadata(origin),
       })
       .returningAll()
       .executeTakeFirst();

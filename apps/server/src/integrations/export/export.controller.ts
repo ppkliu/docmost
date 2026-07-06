@@ -79,6 +79,7 @@ export class ExportController {
       req,
     );
 
+    const requestOrigin = this.networkOriginService.getRequestOrigin(req);
     this.auditService.log({
       event: AuditEvent.PAGE_EXPORTED,
       resourceType: AuditResource.PAGE,
@@ -90,6 +91,10 @@ export class ExportController {
         includeChildren: dto.includeChildren,
         includeAttachments: dto.includeAttachments,
         spaceId: page.spaceId,
+        // design v2 §7 "Audit / 診斷": originNetwork = this page's recorded
+        // upload/creation network, requestNetwork = the exporting request's.
+        originNetwork: page.originNetworkScope,
+        requestNetwork: requestOrigin.originNetworkScope,
       },
     });
 
@@ -145,6 +150,7 @@ export class ExportController {
       req,
     );
 
+    const requestOrigin = this.networkOriginService.getRequestOrigin(req);
     this.auditService.log({
       event: AuditEvent.SPACE_EXPORTED,
       resourceType: AuditResource.SPACE,
@@ -154,6 +160,9 @@ export class ExportController {
         format: dto.format,
         includeAttachments: dto.includeAttachments ?? false,
         spaceName: exportFile.spaceName,
+        // A space spans many pages, so there's no single originNetwork to
+        // report — only the exporting request's network is meaningful here.
+        requestNetwork: requestOrigin.originNetworkScope,
       },
     });
 

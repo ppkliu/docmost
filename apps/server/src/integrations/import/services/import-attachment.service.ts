@@ -20,6 +20,7 @@ import pLimit from 'p-limit';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { QueueJob, QueueName } from '../../queue/constants';
+import { originFromFileTaskMetadata } from '../../../common/services/network-origin.service';
 
 interface AttachmentInfo {
   href: string;
@@ -45,6 +46,22 @@ export class ImportAttachmentService {
     @InjectKysely() private readonly db: KyselyDB,
     @InjectQueue(QueueName.ATTACHMENT_QUEUE) private attachmentQueue: Queue,
   ) {}
+
+  /**
+   * Import runs as a background job with no request context, so the origin
+   * captured when the file task was created is snapshotted into
+   * `fileTask.metadata` (see NetworkOriginService.originToFileTaskMetadata)
+   * and read back here for every attachment produced by this import.
+   */
+  private originFieldsFor(fileTask: FileTask) {
+    const origin = originFromFileTaskMetadata(fileTask.metadata);
+    return {
+      originIp: origin?.originIp ?? null,
+      originNetwork: origin?.originNetwork ?? null,
+      originNetworkScope: origin?.originNetworkScope ?? null,
+      originRecordedAt: origin?.originRecordedAt ?? null,
+    };
+  }
 
   async processAttachments(opts: {
     html: string;
@@ -159,6 +176,7 @@ export class ImportAttachmentService {
                 workspaceId: fileTask.workspaceId,
                 pageId,
                 spaceId: fileTask.spaceId,
+                ...this.originFieldsFor(fileTask),
               })
               .execute();
 
@@ -935,6 +953,7 @@ export class ImportAttachmentService {
             workspaceId: fileTask.workspaceId,
             pageId,
             spaceId: fileTask.spaceId,
+            ...this.originFieldsFor(fileTask),
           })
           .execute();
 

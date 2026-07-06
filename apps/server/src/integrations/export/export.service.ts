@@ -46,7 +46,7 @@ type AllowedAttachment = {
   id: string;
   fileName: string;
   filePath: string;
-  originNetwork: string | null;
+  originNetworkScope: string | null;
 };
 
 @Injectable()
@@ -227,7 +227,7 @@ export class ExportService {
         'pages.parentPageId',
         'pages.spaceId',
         'pages.workspaceId',
-        'pages.originNetwork',
+        'pages.originNetworkScope',
         'pages.createdAt',
         'pages.updatedAt',
       ])
@@ -428,7 +428,7 @@ export class ExportService {
 
     const attachments = await this.db
       .selectFrom('attachments')
-      .select(['id', 'fileName', 'filePath', 'pageId', 'originNetwork'])
+      .select(['id', 'fileName', 'filePath', 'pageId', 'originNetworkScope'])
       .where('id', 'in', [...allAttachmentIds])
       .where('spaceId', '=', spaceId)
       .execute();
@@ -459,7 +459,7 @@ export class ExportService {
   }
 
   private assertPagesAllowedByNetwork(
-    pages: Pick<Page, 'originNetwork'>[],
+    pages: Pick<Page, 'id' | 'originNetworkScope'>[],
     req: FastifyRequest,
   ): void {
     const allowed = this.networkOriginService.filterAllowedPages(

@@ -205,7 +205,9 @@ export class AttachmentController {
       await this.pageAccessService.validateCanView(page, user);
     }
 
-    this.networkOriginService.assertCanDownloadAttachment(attachment, req);
+    if (!this.isImageEmbedRequest(req, attachment)) {
+      this.networkOriginService.assertCanDownloadAttachment(attachment, req);
+    }
 
     try {
       return await this.sendFileResponse(req, res, attachment, 'private');
@@ -255,7 +257,9 @@ export class AttachmentController {
       throw new NotFoundException('File not found');
     }
 
-    this.networkOriginService.assertCanDownloadAttachment(attachment, req);
+    if (!this.isImageEmbedRequest(req, attachment)) {
+      this.networkOriginService.assertCanDownloadAttachment(attachment, req);
+    }
 
     try {
       return await this.sendFileResponse(req, res, attachment, 'public');
@@ -470,6 +474,23 @@ export class AttachmentController {
       await this.attachmentService.removeWorkspaceIcon(workspace);
       return;
     }
+  }
+
+  /**
+   * Network-origin exemption for inline image rendering (2026-07-03 design v2, G3):
+   * a browser loading an <img> tag sends `Sec-Fetch-Dest: image`. Restricted
+   * images stay visible embedded in a page but any other request shape for
+   * the same URL (direct navigation, "save as", fetch/XHR download) is still
+   * subject to the normal network-origin check. This is a best-effort UX
+   * exemption, not a security boundary — anything renderable is copyable.
+   */
+  private isImageEmbedRequest(
+    req: FastifyRequest,
+    attachment: Attachment,
+  ): boolean {
+    const isImage = attachment.mimeType?.startsWith('image/') ?? false;
+    const secFetchDest = req.headers?.['sec-fetch-dest'];
+    return isImage && secFetchDest === 'image';
   }
 
   private async sendFileResponse(
