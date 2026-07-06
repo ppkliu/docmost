@@ -43,6 +43,7 @@ export class SessionService {
 
     const deviceName = this.parseDeviceName(userAgent);
     const expiresAt = this.environmentService.getCookieExpiresIn();
+    const zone = this.environmentService.getNativeLoginZone();
 
     const session = await this.userSessionRepo.insertSession({
       userId: user.id,
@@ -50,6 +51,9 @@ export class SessionService {
       deviceName,
       ipAddress,
       expiresAt,
+      // Network-origin permissions: native Docmost login is always internal by
+      // current business rule. WUJI SSO stamps its own zone in wuji-adapter.
+      metadata: { zone },
     });
 
     return this.tokenService.generateAccessToken(user, session.id);

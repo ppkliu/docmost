@@ -1,10 +1,22 @@
-import { ForbiddenException, Injectable } from '@nestjs/common';
+import { ForbiddenException, Injectable, Logger } from '@nestjs/common';
 import { FastifyRequest } from 'fastify';
 import { isIP } from 'node:net';
 import { EnvironmentService } from '../../integrations/environment/environment.service';
 import { Attachment, Page } from '@docmost/db/types/entity.types';
 
-export type NetworkOriginScope = 'internal' | 'external' | 'unknown';
+export type NetworkOriginScope = 'internal' | 'external' | 'mrdoc' | 'unknown';
+
+export type RequestZone = 'internal' | 'office' | 'unknown';
+
+const ENTRANCE_HEADER = 'x-docmost-entrance';
+
+// Higher = more trusted / grants more. Used to pick the "stricter" (lower)
+// zone when the Caddy entrance header and the client-IP CIDR disagree.
+const ZONE_RANK: Record<RequestZone, number> = {
+  internal: 2,
+  office: 1,
+  unknown: 0,
+};
 
 export type NetworkOrigin = {
   originIp: string | null;
@@ -19,100 +31,331 @@ type ParsedCidr = {
   bits: number;
 };
 
+/**
+ * Async import (zip/bulk-files) creates pages/attachments from a background
+ * job with no request context, so the origin captured at upload time is
+ * snapshotted into `file_tasks.metadata` and read back by the processor
+ * (design v2 §5 "Page import", P3.6). These two helpers are the only place
+ * that (de)serializes that snapshot shape.
+ */
+export function originToFileTaskMetadata(
+  origin: NetworkOrigin | null | undefined,
+): Record<string, string | null> | null {
+  if (!origin) return null;
+  return {
+    originIp: origin.originIp,
+    originNetwork: origin.originNetwork,
+    originNetworkScope: origin.originNetworkScope,
+    originRecordedAt: origin.originRecordedAt?.toISOString() ?? null,
+  };
+}
+
+export function originFromFileTaskMetadata(
+  metadata: unknown,
+): Pick<
+  NetworkOrigin,
+  'originIp' | 'originNetwork' | 'originNetworkScope' | 'originRecordedAt'
+> | null {
+  if (!metadata || typeof metadata !== 'object') return null;
+  const o = metadata as Record<string, unknown>;
+  if (typeof o.originNetworkScope !== 'string' && o.originIp == null) {
+    return null;
+  }
+  return {
+    originIp: typeof o.originIp === 'string' ? o.originIp : null,
+    originNetwork: typeof o.originNetwork === 'string' ? o.originNetwork : null,
+    originNetworkScope:
+      typeof o.originNetworkScope === 'string'
+        ? (o.originNetworkScope as NetworkOriginScope)
+        : null,
+    originRecordedAt:
+      typeof o.originRecordedAt === 'string'
+        ? new Date(o.originRecordedAt)
+        : null,
+  };
+}
+
 @Injectable()
 export class NetworkOriginService {
+  private readonly logger = new Logger(NetworkOriginService.name);
+
   constructor(private readonly environmentService: EnvironmentService) {}
 
   getRequestOrigin(
     req: FastifyRequest | { ip?: string; headers?: any },
   ): NetworkOrigin {
     const ip = this.resolveClientIp(req);
-    if (!ip) {
-      return this.unknownOrigin();
-    }
-
-    const network = this.toOriginNetwork(ip);
-    if (!network) {
-      return this.unknownOrigin();
-    }
+    const zone = this.getCurrentUserNetworkZone(req);
 
     return {
+      // ip/network are recorded for audit even when the zone comes from the
+      // static deployment override below — they just don't drive the decision.
       originIp: ip,
-      originNetwork: network,
-      originNetworkScope: this.isInternalIp(ip) ? 'internal' : 'external',
+      originNetwork: ip ? this.toOriginNetwork(ip) : null,
+      originNetworkScope: this.zoneToScope(zone),
       originRecordedAt: new Date(),
     };
   }
 
+  /**
+   * Zone resolution precedence:
+   *
+   * 1. **Session-stamped zone** — decided once, at login time: native Docmost
+   *    login uses `EnvironmentService.getNativeLoginZone()` (internal by
+   *    business rule); WUJI SSO uses the
+   *    zone derived by wuji-adapter from its `WUJI_HOST` IP/CIDRs (or explicit
+   *    `WUJI_ZONE`). `JwtStrategy.validate` reads it back per request and
+   *    attaches it as `req.raw.sessionZone`. This is authoritative for any
+   *    authenticated request — it does not re-derive from the current request's
+   *    IP, so a session started on one network still works correctly if the
+   *    user's IP momentarily looks ambiguous (VPN, proxy).
+   * 2. `DOCMOST_DEPLOYMENT_ZONE` static override — fallback for requests with
+   *    no session to read (public share links, API keys) on a topology where
+   *    the *entire deployment* sits permanently in one network.
+   * 3. Hybrid header+CIDR resolution (`resolveZone`, below) — fallback for a
+   *    *single shared* deployment serving both networks with no session
+   *    context, classifying by Caddy's dual entrances +
+   *    `DOCMOST_INTERNAL_CIDRS`/`DOCMOST_OFFICE_CIDRS` (Phase 8 / G1).
+   */
+  getCurrentUserNetworkZone(
+    req: FastifyRequest | { ip?: string; headers?: any; raw?: { sessionZone?: string } },
+  ): RequestZone {
+    const sessionZone = (req as any)?.raw?.sessionZone;
+    if (sessionZone === 'internal' || sessionZone === 'office') {
+      return sessionZone;
+    }
+
+    const deploymentZone = this.environmentService.getDeploymentZone();
+    if (deploymentZone) {
+      return deploymentZone;
+    }
+
+    const ip = this.resolveClientIp(req);
+    if (!ip) return 'unknown';
+    return this.resolveZone(ip, req.headers);
+  }
+
+  /**
+   * Backward-compatible name for older call sites. New code should call
+   * `getCurrentUserNetworkZone()` so the business meaning is explicit:
+   * "which network zone is the current authenticated user/request in?"
+   */
+  getRequestZone(
+    req: FastifyRequest | { ip?: string; headers?: any; raw?: { sessionZone?: string } },
+  ): RequestZone {
+    return this.getCurrentUserNetworkZone(req);
+  }
+
+  isCurrentUserInternal(
+    req: FastifyRequest | { ip?: string; headers?: any; raw?: { sessionZone?: string } },
+  ): boolean {
+    return this.getCurrentUserNetworkZone(req) === 'internal';
+  }
+
+  isCurrentUserOffice(
+    req: FastifyRequest | { ip?: string; headers?: any; raw?: { sessionZone?: string } },
+  ): boolean {
+    return this.getCurrentUserNetworkZone(req) === 'office';
+  }
+
+  /**
+   * Hybrid zone resolution (design v2 §3 "混合入口判別", Phase 8 / G1) — only
+   * used when `DOCMOST_DEPLOYMENT_ZONE` is unset (see `getRequestZone`). The
+   * dual Caddy entrances stamp a trusted `X-Docmost-Entrance: internal|office`
+   * header and strip any client-supplied one before proxying to Docmost. We
+   * cross-check that header against the CIDR-derived zone and take the
+   * stricter (lower-privilege) of the two on disagreement — so a caller
+   * cannot use the header to *escalate* past what their IP allows, only to
+   * (harmlessly) downgrade themselves. Deployments with a single entrance
+   * never send the header, so this falls back to pure-CIDR automatically;
+   * `DOCMOST_ENTRANCE_HEADER_REQUIRED=true` treats an absent header as
+   * suspicious (e.g. Docmost reached directly, bypassing Caddy) rather than
+   * silently trusting the CIDR-only result.
+   */
+  private resolveZone(ip: string, headers?: Record<string, unknown>): RequestZone {
+    const cidrZone: RequestZone = this.isInternalIp(ip)
+      ? 'internal'
+      : this.isOfficeIp(ip)
+        ? 'office'
+        : 'unknown';
+
+    const headerZone = this.resolveHeaderZone(headers);
+
+    if (!headerZone) {
+      if (this.environmentService.getEntranceHeaderRequired()) {
+        this.logger.warn(
+          `Missing required ${ENTRANCE_HEADER} header for ip=${ip}; treating as unknown zone`,
+        );
+        return 'unknown';
+      }
+      return cidrZone;
+    }
+
+    if (headerZone !== cidrZone) {
+      this.logger.warn(
+        `Entrance header/CIDR zone mismatch for ip=${ip}: header=${headerZone} cidr=${cidrZone}; using the stricter zone`,
+      );
+    }
+
+    return ZONE_RANK[headerZone] <= ZONE_RANK[cidrZone] ? headerZone : cidrZone;
+  }
+
+  private resolveHeaderZone(
+    headers?: Record<string, unknown>,
+  ): RequestZone | null {
+    const raw = headers?.[ENTRANCE_HEADER];
+    const value = typeof raw === 'string' ? raw : Array.isArray(raw) ? raw[0] : null;
+    return value === 'internal' || value === 'office' ? value : null;
+  }
+
+  private zoneToScope(zone: RequestZone): NetworkOriginScope {
+    if (zone === 'internal') return 'internal';
+    if (zone === 'office') return 'external';
+    return 'unknown';
+  }
+
   assertCanExportPage(
-    page: Pick<Page, 'originNetwork'>,
+    page: Pick<Page, 'id' | 'originNetworkScope'>,
     req: FastifyRequest,
   ): void {
-    this.assertAllowed(page.originNetwork, req);
+    this.assertAllowed(page.originNetworkScope, req, {
+      action: 'export',
+      resourceType: 'page',
+      resourceId: page.id,
+    });
   }
 
   assertCanPrintPage(
-    page: Pick<Page, 'originNetwork'>,
+    page: Pick<Page, 'id' | 'originNetworkScope'>,
     req: FastifyRequest,
   ): void {
-    this.assertAllowed(page.originNetwork, req);
+    this.assertAllowed(page.originNetworkScope, req, {
+      action: 'print',
+      resourceType: 'page',
+      resourceId: page.id,
+    });
   }
 
   assertCanDownloadAttachment(
-    attachment: Pick<Attachment, 'originNetwork'>,
+    attachment: Pick<Attachment, 'id' | 'originNetworkScope'>,
     req: FastifyRequest,
   ): void {
-    this.assertAllowed(attachment.originNetwork, req);
+    this.assertAllowed(attachment.originNetworkScope, req, {
+      action: 'download',
+      resourceType: 'attachment',
+      resourceId: attachment.id,
+    });
   }
 
-  filterAllowedPages<T extends Pick<Page, 'originNetwork'>>(
+  filterAllowedPages<T extends Pick<Page, 'id' | 'originNetworkScope'>>(
     pages: T[],
     req: FastifyRequest,
+    action: 'export' = 'export',
   ): T[] {
-    return pages.filter((page) => this.isAllowed(page.originNetwork, req));
+    const blocked: string[] = [];
+    const allowed = pages.filter((page) => {
+      const ok = this.isAllowed(page.originNetworkScope, req);
+      if (!ok) blocked.push(page.id);
+      return ok;
+    });
+    if (blocked.length > 0) {
+      this.logBlocked(req, {
+        action,
+        resourceType: 'page',
+        resourceIds: blocked,
+      });
+    }
+    return allowed;
   }
 
-  filterAllowedAttachments<T extends Pick<Attachment, 'originNetwork'>>(
-    attachments: T[],
-    req: FastifyRequest,
-  ): T[] {
-    return attachments.filter((attachment) =>
-      this.isAllowed(attachment.originNetwork, req),
-    );
+  filterAllowedAttachments<
+    T extends Pick<Attachment, 'id' | 'originNetworkScope'>,
+  >(attachments: T[], req: FastifyRequest, action: 'export' = 'export'): T[] {
+    const blocked: string[] = [];
+    const allowed = attachments.filter((attachment) => {
+      const ok = this.isAllowed(attachment.originNetworkScope, req);
+      if (!ok) blocked.push(attachment.id);
+      return ok;
+    });
+    if (blocked.length > 0) {
+      this.logBlocked(req, {
+        action,
+        resourceType: 'attachment',
+        resourceIds: blocked,
+      });
+    }
+    return allowed;
   }
 
+  /**
+   * Zone-based policy (2026-07-03 design v2): a resource's origin_network_scope
+   * decides who may export/download it, not whether requester and uploader
+   * share a subnet. `origin_network` is retained on the resource purely for
+   * audit purposes and no longer participates in this decision.
+   */
   isAllowed(
-    resourceOriginNetwork: string | null | undefined,
+    resourceOriginScope: NetworkOriginScope | string | null | undefined,
     req: FastifyRequest,
   ): boolean {
-    const requestOrigin = this.getRequestOrigin(req);
-    if (requestOrigin.originNetworkScope === 'internal') {
+    const requestZone = this.getCurrentUserNetworkZone(req);
+
+    if (requestZone === 'internal') {
       return true;
     }
 
-    if (!resourceOriginNetwork) {
-      return this.environmentService.getUnknownOriginPolicy() === 'allow';
+    if (requestZone === 'unknown') {
+      return false;
     }
 
-    return requestOrigin.originNetwork === resourceOriginNetwork;
+    // requestZone === 'office' from here on
+    switch (resourceOriginScope) {
+      case 'internal':
+      case 'mrdoc':
+        return false;
+      case 'external':
+        return true;
+      default:
+        return this.environmentService.getUnknownOriginPolicy() === 'allow';
+    }
   }
 
   private assertAllowed(
-    resourceOriginNetwork: string | null | undefined,
+    resourceOriginScope: NetworkOriginScope | string | null | undefined,
     req: FastifyRequest,
+    context: { action: string; resourceType: string; resourceId?: string },
   ): void {
-    if (!this.isAllowed(resourceOriginNetwork, req)) {
+    if (!this.isAllowed(resourceOriginScope, req)) {
+      this.logBlocked(req, {
+        action: context.action,
+        resourceType: context.resourceType,
+        resourceIds: context.resourceId ? [context.resourceId] : [],
+        resourceOriginScope,
+      });
       throw new ForbiddenException('Network origin does not allow this action');
     }
   }
 
-  private unknownOrigin(): NetworkOrigin {
-    return {
-      originIp: null,
-      originNetwork: null,
-      originNetworkScope: 'unknown',
-      originRecordedAt: null,
-    };
+  /**
+   * Design v2 §7 "Audit / 診斷": until a formal audit event exists for
+   * network-origin denials, blocked actions get a structured warn log tagged
+   * NETWORK_ORIGIN_PERMISSION_BLOCKED so they're at least greppable/alertable.
+   */
+  private logBlocked(
+    req: FastifyRequest,
+    details: {
+      action: string;
+      resourceType: string;
+      resourceIds: string[];
+      resourceOriginScope?: NetworkOriginScope | string | null;
+    },
+  ): void {
+    const requestZone = this.getCurrentUserNetworkZone(req);
+    const ip = this.resolveClientIp(req);
+    this.logger.warn(
+      `NETWORK_ORIGIN_PERMISSION_BLOCKED action=${details.action} resourceType=${details.resourceType} ` +
+        `resourceId=${details.resourceIds.join(',') || 'n/a'} requestZone=${requestZone} ` +
+        `resourceOriginScope=${details.resourceOriginScope ?? 'n/a'} ip=${ip ?? 'unknown'}`,
+    );
   }
 
   private resolveClientIp(
@@ -163,6 +406,12 @@ export class NetworkOriginService {
   private isInternalIp(ip: string): boolean {
     return this.environmentService
       .getInternalCidrs()
+      .some((cidr) => this.ipInCidr(ip, cidr));
+  }
+
+  private isOfficeIp(ip: string): boolean {
+    return this.environmentService
+      .getOfficeCidrs()
       .some((cidr) => this.ipInCidr(ip, cidr));
   }
 

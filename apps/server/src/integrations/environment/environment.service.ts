@@ -2,6 +2,9 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import ms, { StringValue } from 'ms';
 
+export type LoginNetworkSource = 'native' | 'wuji-sso';
+export type LoginNetworkZone = 'internal' | 'office';
+
 @Injectable()
 export class EnvironmentService {
   constructor(private configService: ConfigService) {}
@@ -374,6 +377,14 @@ export class EnvironmentService {
       .filter(Boolean);
   }
 
+  getOfficeCidrs(): string[] {
+    const raw = this.configService.get<string>('DOCMOST_OFFICE_CIDRS', '');
+    return raw
+      .split(',')
+      .map((cidr) => cidr.trim())
+      .filter(Boolean);
+  }
+
   getOriginNetworkMaskV4(): number {
     return this.clampCidrMask(
       parseInt(
@@ -403,6 +414,54 @@ export class EnvironmentService {
     return policy === 'deny' ? 'deny' : 'allow';
   }
 
+  getEntranceHeaderRequired(): boolean {
+    return (
+      this.configService
+        .get<string>('DOCMOST_ENTRANCE_HEADER_REQUIRED', 'false')
+        .toLowerCase() === 'true'
+    );
+  }
+
+  /**
+   * Static zone override for per-zone-deployment topologies: set this when
+   * the whole docmost+adapter+caddy stack permanently belongs to one network
+   * (see NetworkOriginService.getRequestZone doc comment). Unset (empty
+   * string) falls back to the CIDR/dual-entrance resolution for shared
+   * deployments serving both networks.
+   */
+  getDeploymentZone(): 'internal' | 'office' | null {
+    const zone = this.configService
+      .get<string>('DOCMOST_DEPLOYMENT_ZONE', '')
+      .trim()
+      .toLowerCase();
+    return zone === 'internal' || zone === 'office' ? zone : null;
+  }
+
+  /**
+   * Dedicated login-source policy hook. Native Docmost login is always internal
+   * by current business rule; WUJI SSO is handled by wuji-adapter before the
+   * session reaches Docmost. `overrideZone` is intentionally parameterized for
+   * future controlled callers/tests, not read from env for native login.
+   */
+  getLoginNetworkZone(
+    source: LoginNetworkSource,
+    options: { overrideZone?: LoginNetworkZone | null } = {},
+  ): LoginNetworkZone {
+    if (options.overrideZone === 'internal' || options.overrideZone === 'office') {
+      return options.overrideZone;
+    }
+
+    if (source === 'native') {
+      return 'internal';
+    }
+
+    return 'internal';
+  }
+
+  getNativeLoginZone(): LoginNetworkZone {
+    return this.getLoginNetworkZone('native');
+  }
+
   getTrustProxy(): boolean {
     return (
       this.configService.get<string>('TRUST_PROXY', 'false').toLowerCase() ===
@@ -416,4 +475,5 @@ export class EnvironmentService {
     }
     return value;
   }
+
 }
