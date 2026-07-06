@@ -51,7 +51,7 @@ export class SessionService {
       deviceName,
       ipAddress,
       expiresAt,
-      // Network-origin permissions: native Docmost login is always internal by
+      // Network-origin permissions: native Docmost login is always office by
       // current business rule. WUJI SSO stamps its own zone in wuji-adapter.
       metadata: { zone },
     });

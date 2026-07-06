@@ -438,7 +438,7 @@ export class EnvironmentService {
   }
 
   /**
-   * Dedicated login-source policy hook. Native Docmost login is always internal
+   * Dedicated login-source policy hook. Native Docmost login is always office
    * by current business rule; WUJI SSO is handled by wuji-adapter before the
    * session reaches Docmost. `overrideZone` is intentionally parameterized for
    * future controlled callers/tests, not read from env for native login.
@@ -452,7 +452,7 @@ export class EnvironmentService {
     }
 
     if (source === 'native') {
-      return 'internal';
+      return 'office';
     }
 
     return 'internal';

@@ -29,16 +29,16 @@ describe('EnvironmentService', () => {
   });
 
   describe('getNativeLoginZone', () => {
-    it('defaults native login to internal', () => {
-      expect(service.getNativeLoginZone()).toBe('internal');
+    it('defaults native login to office', () => {
+      expect(service.getNativeLoginZone()).toBe('office');
     });
 
-    it('keeps native login internal even when the configured WUJI host is office', () => {
+    it('keeps native login office even when the configured WUJI host is internal', () => {
       values.DOCMOST_INTERNAL_CIDRS = '10.7.0.0/16';
       values.DOCMOST_OFFICE_CIDRS = '10.124.0.0/16';
-      values.DOCMOST_WUJI_HOST = '10.124.1.162';
+      values.DOCMOST_WUJI_HOST = '10.7.11.216';
 
-      expect(service.getNativeLoginZone()).toBe('internal');
+      expect(service.getNativeLoginZone()).toBe('office');
     });
   });
 
@@ -48,7 +48,7 @@ describe('EnvironmentService', () => {
         service.getLoginNetworkZone('native', { overrideZone: 'office' }),
       ).toBe('office');
 
-      expect(service.getLoginNetworkZone('native')).toBe('internal');
+      expect(service.getLoginNetworkZone('native')).toBe('office');
     });
   });
 });

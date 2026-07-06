@@ -79,7 +79,7 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
       }
       req.raw.sessionId = sessionId;
       // Network-origin permissions: the zone is decided once at login time
-      // (native login => internal; WUJI SSO via the adapter's WUJI_HOST/IP
+      // (native login => office; WUJI SSO via the adapter's WUJI_HOST/IP
       // zone), then stamped onto the session. Reading
       // it back here means NetworkOriginService never has to guess from the
       // current request's IP for any authenticated request.

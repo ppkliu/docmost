@@ -101,7 +101,7 @@ export class NetworkOriginService {
    * Zone resolution precedence:
    *
    * 1. **Session-stamped zone** — decided once, at login time: native Docmost
-   *    login uses `EnvironmentService.getNativeLoginZone()` (internal by
+   *    login uses `EnvironmentService.getNativeLoginZone()` (office by
    *    business rule); WUJI SSO uses the
    *    zone derived by wuji-adapter from its `WUJI_HOST` IP/CIDRs (or explicit
    *    `WUJI_ZONE`). `JwtStrategy.validate` reads it back per request and
