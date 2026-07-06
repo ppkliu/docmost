@@ -42,6 +42,7 @@ import {
   AUDIT_SERVICE,
   IAuditService,
 } from '../../../integrations/audit/audit.service';
+import { originFromFileTaskMetadata } from '../../../common/services/network-origin.service';
 
 @Injectable()
 export class FileImportTaskService {
@@ -161,6 +162,7 @@ export class FileImportTaskService {
     fileTask: FileTask;
   }): Promise<void> {
     const { extractDir, fileTask } = opts;
+    const origin = originFromFileTaskMetadata(fileTask.metadata);
     const isNotion = fileTask.source === FileImportSource.Notion;
     const allFiles = await collectMarkdownAndHtmlFiles(extractDir);
     const attachmentCandidates = await buildAttachmentCandidates(extractDir);
@@ -536,6 +538,10 @@ export class FileImportTaskService {
               creatorId: fileTask.creatorId,
               lastUpdatedById: fileTask.creatorId,
               parentPageId: page.parentPageId,
+              originIp: origin?.originIp,
+              originNetwork: origin?.originNetwork,
+              originNetworkScope: origin?.originNetworkScope,
+              originRecordedAt: origin?.originRecordedAt,
             };
 
             await trx.insertInto('pages').values(insertablePage).execute();
