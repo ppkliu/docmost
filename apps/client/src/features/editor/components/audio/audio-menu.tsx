@@ -8,12 +8,10 @@ import {
   ShouldShowProps,
 } from "@/features/editor/components/table/types/types.ts";
 import { ActionIcon, Tooltip } from "@mantine/core";
-import {
-  IconDownload,
-  IconTrash,
-} from "@tabler/icons-react";
+import { IconDownload, IconTrash } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
 import { getFileUrl } from "@/lib/config.ts";
+import { downloadWithNetworkOriginGuard } from "@/lib/network-origin";
 import classes from "../common/toolbar-menu.module.css";
 
 export function AudioMenu({ editor }: EditorMenuProps) {
@@ -70,11 +68,7 @@ export function AudioMenu({ editor }: EditorMenuProps) {
 
   const handleDownload = useCallback(() => {
     if (!editorState?.src) return;
-    const url = getFileUrl(editorState.src);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "";
-    a.click();
+    downloadWithNetworkOriginGuard(getFileUrl(editorState.src), "audio");
   }, [editorState?.src]);
 
   const handleDelete = useCallback(() => {

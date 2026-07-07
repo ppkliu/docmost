@@ -21,6 +21,7 @@ import { useTranslation } from "react-i18next";
 import { getFileUrl } from "@/lib/config.ts";
 import { uploadImageAction } from "@/features/editor/components/image/upload-image-action.tsx";
 import { useAltTextControl } from "@/features/editor/components/common/use-alt-text-control.tsx";
+import { downloadWithNetworkOriginGuard } from "@/lib/network-origin";
 import classes from "../common/toolbar-menu.module.css";
 
 export function ImageMenu({ editor }: EditorMenuProps) {
@@ -106,11 +107,7 @@ export function ImageMenu({ editor }: EditorMenuProps) {
 
   const handleDownload = useCallback(() => {
     if (!editorState?.src) return;
-    const url = getFileUrl(editorState.src);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "";
-    a.click();
+    downloadWithNetworkOriginGuard(getFileUrl(editorState.src), "image");
   }, [editorState?.src]);
 
   const handleReplace = useCallback(() => {
@@ -165,80 +162,88 @@ export function ImageMenu({ editor }: EditorMenuProps) {
         altTextPanel
       ) : (
         <div className={classes.toolbar}>
-        <Tooltip position="top" label={t("Align left")} withinPortal={false}>
-          <ActionIcon
-            onClick={alignImageLeft}
-            size="lg"
-            aria-label={t("Align left")}
-            variant="subtle"
-            className={clsx({ [classes.active]: editorState?.isAlignLeft })}
+          <Tooltip position="top" label={t("Align left")} withinPortal={false}>
+            <ActionIcon
+              onClick={alignImageLeft}
+              size="lg"
+              aria-label={t("Align left")}
+              variant="subtle"
+              className={clsx({ [classes.active]: editorState?.isAlignLeft })}
+            >
+              <IconLayoutAlignLeft size={18} />
+            </ActionIcon>
+          </Tooltip>
+
+          <Tooltip
+            position="top"
+            label={t("Align center")}
+            withinPortal={false}
           >
-            <IconLayoutAlignLeft size={18} />
-          </ActionIcon>
-        </Tooltip>
+            <ActionIcon
+              onClick={alignImageCenter}
+              size="lg"
+              aria-label={t("Align center")}
+              variant="subtle"
+              className={clsx({ [classes.active]: editorState?.isAlignCenter })}
+            >
+              <IconLayoutAlignCenter size={18} />
+            </ActionIcon>
+          </Tooltip>
 
-        <Tooltip position="top" label={t("Align center")} withinPortal={false}>
-          <ActionIcon
-            onClick={alignImageCenter}
-            size="lg"
-            aria-label={t("Align center")}
-            variant="subtle"
-            className={clsx({ [classes.active]: editorState?.isAlignCenter })}
+          <Tooltip position="top" label={t("Align right")} withinPortal={false}>
+            <ActionIcon
+              onClick={alignImageRight}
+              size="lg"
+              aria-label={t("Align right")}
+              variant="subtle"
+              className={clsx({ [classes.active]: editorState?.isAlignRight })}
+            >
+              <IconLayoutAlignRight size={18} />
+            </ActionIcon>
+          </Tooltip>
+
+          <div className={classes.divider} />
+
+          {altTextButton}
+
+          <div className={classes.divider} />
+
+          <Tooltip position="top" label={t("Download")} withinPortal={false}>
+            <ActionIcon
+              onClick={handleDownload}
+              size="lg"
+              aria-label={t("Download")}
+              variant="subtle"
+            >
+              <IconDownload size={18} />
+            </ActionIcon>
+          </Tooltip>
+
+          <Tooltip
+            position="top"
+            label={t("Replace image")}
+            withinPortal={false}
           >
-            <IconLayoutAlignCenter size={18} />
-          </ActionIcon>
-        </Tooltip>
+            <ActionIcon
+              onClick={handleReplace}
+              size="lg"
+              aria-label={t("Replace image")}
+              variant="subtle"
+            >
+              <IconRefresh size={18} />
+            </ActionIcon>
+          </Tooltip>
 
-        <Tooltip position="top" label={t("Align right")} withinPortal={false}>
-          <ActionIcon
-            onClick={alignImageRight}
-            size="lg"
-            aria-label={t("Align right")}
-            variant="subtle"
-            className={clsx({ [classes.active]: editorState?.isAlignRight })}
-          >
-            <IconLayoutAlignRight size={18} />
-          </ActionIcon>
-        </Tooltip>
-
-        <div className={classes.divider} />
-
-        {altTextButton}
-
-        <div className={classes.divider} />
-
-        <Tooltip position="top" label={t("Download")} withinPortal={false}>
-          <ActionIcon
-            onClick={handleDownload}
-            size="lg"
-            aria-label={t("Download")}
-            variant="subtle"
-          >
-            <IconDownload size={18} />
-          </ActionIcon>
-        </Tooltip>
-
-        <Tooltip position="top" label={t("Replace image")} withinPortal={false}>
-          <ActionIcon
-            onClick={handleReplace}
-            size="lg"
-            aria-label={t("Replace image")}
-            variant="subtle"
-          >
-            <IconRefresh size={18} />
-          </ActionIcon>
-        </Tooltip>
-
-        <Tooltip position="top" label={t("Delete")} withinPortal={false}>
-          <ActionIcon
-            onClick={handleDelete}
-            size="lg"
-            aria-label={t("Delete")}
-            variant="subtle"
-          >
-            <IconTrash size={18} />
-          </ActionIcon>
-        </Tooltip>
+          <Tooltip position="top" label={t("Delete")} withinPortal={false}>
+            <ActionIcon
+              onClick={handleDelete}
+              size="lg"
+              aria-label={t("Delete")}
+              variant="subtle"
+            >
+              <IconTrash size={18} />
+            </ActionIcon>
+          </Tooltip>
         </div>
       )}
 
