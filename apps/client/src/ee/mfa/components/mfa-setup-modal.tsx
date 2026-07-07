@@ -29,7 +29,6 @@ import {
   IconAlertCircle,
   IconChevronDown,
   IconChevronRight,
-  IconPrinter,
 } from "@tabler/icons-react";
 import { useForm } from "@mantine/form";
 import { useMutation } from "@tanstack/react-query";
@@ -136,10 +135,6 @@ export function MfaSetupModal({
 
   const handleVerify = async (values: { verificationCode: string }) => {
     await enableMutation.mutateAsync(values.verificationCode);
-  };
-
-  const handlePrintBackupCodes = () => {
-    window.print();
   };
 
   return (
@@ -314,14 +309,6 @@ export function MfaSetupModal({
                       </Button>
                     )}
                   </CopyButton>
-                  <Button
-                    size="xs"
-                    variant="subtle"
-                    onClick={handlePrintBackupCodes}
-                    leftSection={<IconPrinter size={14} />}
-                  >
-                    {t("Print")}
-                  </Button>
                 </Group>
               </Group>
               <List size="sm" spacing="xs">

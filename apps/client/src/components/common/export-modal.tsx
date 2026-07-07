@@ -13,6 +13,7 @@ import { ExportFormat } from "@/features/page/types/page.types.ts";
 import { notifications } from "@mantine/notifications";
 import { exportSpace } from "@/features/space/services/space-service";
 import { useTranslation } from "react-i18next";
+import { notifyNetworkOriginBlocked } from "@/lib/network-origin";
 
 interface ExportModalProps {
   id: string;
@@ -52,8 +53,9 @@ export default function ExportModal({
       });
       onClose();
     } catch (err) {
+      if (await notifyNetworkOriginBlocked(err, "export")) return;
       notifications.show({
-        message: "Export failed:" + err.response?.data.message,
+        message: "Export failed:" + err.response?.data?.message,
         color: "red",
       });
       console.error("export error", err);
@@ -143,7 +145,9 @@ export default function ExportModal({
             <Button onClick={onClose} variant="default">
               {t("Cancel")}
             </Button>
-            <Button onClick={handleExport} loading={isExporting}>{t("Export")}</Button>
+            <Button onClick={handleExport} loading={isExporting}>
+              {t("Export")}
+            </Button>
           </Group>
         </Modal.Body>
       </Modal.Content>
