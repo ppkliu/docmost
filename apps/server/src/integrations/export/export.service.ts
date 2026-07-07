@@ -247,11 +247,17 @@ export class ExportService {
       }
     }
 
+    const tree = buildTree(pages as Page[]);
+
     if (req) {
       this.assertPagesAllowedByNetwork(pages as Page[], req);
+      const attachments = await this.resolveAccessibleAttachments(
+        tree,
+        userId,
+        ignorePermissions,
+      );
+      this.assertAttachmentsAllowedByNetwork(attachments, req);
     }
-
-    const tree = buildTree(pages as Page[]);
 
     const baseUrl = await this.getWorkspaceBaseUrl(pages[0].workspaceId);
     const zip = new JSZip();
@@ -279,6 +285,29 @@ export class ExportService {
       fileName,
       spaceName: space.name,
     };
+  }
+
+  async assertPageTreeAllowedByNetwork(
+    pageId: string,
+    req: FastifyRequest,
+  ): Promise<void> {
+    const pages = await this.pageRepo.getPageAndDescendants(pageId, {
+      includeContent: true,
+    });
+
+    if (!pages || pages.length === 0) {
+      throw new BadRequestException('No pages to export');
+    }
+
+    this.assertPagesAllowedByNetwork(pages, req);
+
+    const tree = buildTree(pages as Page[]);
+    const attachments = await this.resolveAccessibleAttachments(
+      tree,
+      undefined,
+      true,
+    );
+    this.assertAttachmentsAllowedByNetwork(attachments, req);
   }
 
   async zipPages(
@@ -336,7 +365,11 @@ export class ExportService {
         );
 
         if (includeAttachments) {
-          await this.zipAttachments(updatedJsonContent, folder, allowedAttachments);
+          await this.zipAttachments(
+            updatedJsonContent,
+            folder,
+            allowedAttachments,
+          );
           updatedJsonContent =
             updateAttachmentUrlsToLocalPaths(updatedJsonContent);
         }
@@ -416,7 +449,9 @@ export class ExportService {
     for (const siblings of Object.values(tree)) {
       for (const page of siblings) {
         if (!spaceId) spaceId = page.spaceId;
-        for (const id of getAttachmentIds(getProsemirrorContent(page.content))) {
+        for (const id of getAttachmentIds(
+          getProsemirrorContent(page.content),
+        )) {
           allAttachmentIds.add(id);
         }
       }
@@ -437,9 +472,7 @@ export class ExportService {
     if (!ignorePermissions && userId) {
       const ownerPageIds = [
         ...new Set(
-          attachments
-            .map((a) => a.pageId)
-            .filter((id): id is string => !!id),
+          attachments.map((a) => a.pageId).filter((id): id is string => !!id),
         ),
       ];
       const accessible = ownerPageIds.length

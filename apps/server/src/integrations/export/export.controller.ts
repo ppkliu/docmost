@@ -67,7 +67,7 @@ export class ExportController {
     }
 
     await this.pageAccessService.validateCanView(page, user);
-    this.networkOriginService.assertCanExportPage(page, req);
+    await this.exportService.assertPageTreeAllowedByNetwork(dto.pageId, req);
 
     const result = await this.exportService.exportPages(
       dto.pageId,

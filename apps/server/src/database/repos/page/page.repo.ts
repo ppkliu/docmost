@@ -359,7 +359,12 @@ export class PageRepo {
     });
   }
 
-  async getCreatedByPages(creatorId: string, requestingUserId: string, pagination: PaginationOptions, spaceId?: string) {
+  async getCreatedByPages(
+    creatorId: string,
+    requestingUserId: string,
+    pagination: PaginationOptions,
+    spaceId?: string,
+  ) {
     let query = this.db
       .selectFrom('pages')
       .select(this.baseFields)
@@ -370,7 +375,11 @@ export class PageRepo {
     if (spaceId) {
       query = query.where('spaceId', '=', spaceId);
     } else {
-      query = query.where('spaceId', 'in', this.spaceMemberRepo.getUserSpaceIdsQuery(requestingUserId));
+      query = query.where(
+        'spaceId',
+        'in',
+        this.spaceMemberRepo.getUserSpaceIdsQuery(requestingUserId),
+      );
     }
 
     return executeWithCursorPagination(query, {
@@ -509,6 +518,7 @@ export class PageRepo {
             'parentPageId',
             'spaceId',
             'workspaceId',
+            'originNetworkScope',
             'createdAt',
             'updatedAt',
           ])
@@ -527,6 +537,7 @@ export class PageRepo {
                 'p.parentPageId',
                 'p.spaceId',
                 'p.workspaceId',
+                'p.originNetworkScope',
                 'p.createdAt',
                 'p.updatedAt',
               ])
