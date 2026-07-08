@@ -73,7 +73,11 @@ export class PageController {
 
   @HttpCode(HttpStatus.OK)
   @Post('/info')
-  async getPage(@Body() dto: PageInfoDto, @AuthUser() user: User) {
+  async getPage(
+    @Body() dto: PageInfoDto,
+    @AuthUser() user: User,
+    @Req() req: FastifyRequest,
+  ) {
     const page = await this.pageRepo.findById(dto.pageId, {
       includeSpace: true,
       includeContent: true,
@@ -90,7 +94,17 @@ export class PageController {
     const { canEdit, hasRestriction } =
       await this.pageAccessService.validateCanViewWithPermissions(page, user);
 
-    const permissions = { canEdit, hasRestriction };
+    // Network-origin gate for client-only actions (e.g. Copy as Markdown) that
+    // never hit a server endpoint to receive a 403. Single source of truth stays
+    // in NetworkOriginService; the client only reads this boolean.
+    const permissions = {
+      canEdit,
+      hasRestriction,
+      networkOriginBlocked: !this.networkOriginService.isAllowed(
+        page.originNetworkScope,
+        req,
+      ),
+    };
 
     if (dto.format && dto.format !== 'json' && page.content) {
       const contentOutput =
