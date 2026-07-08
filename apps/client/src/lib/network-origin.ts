@@ -1,16 +1,21 @@
 import { notifications } from "@mantine/notifications";
 import { saveAs } from "file-saver";
+import i18n from "@/i18n";
 
 type RestrictedAction = "download" | "export" | "print";
 
-const actionLabel: Record<RestrictedAction, string> = {
-  download: "download",
-  export: "export",
-  print: "print",
+// Natural-language i18n keys (present in en-US + zh-CN); other locales fall back.
+const restrictedMessageKey: Record<RestrictedAction, string> = {
+  download:
+    "This download is blocked on the office network because the page, a subpage, or an attachment was created from the internal network.",
+  export:
+    "This export is blocked on the office network because the page, a subpage, or an attachment was created from the internal network.",
+  print:
+    "This print is blocked on the office network because the page, a subpage, or an attachment was created from the internal network.",
 };
 
 const restrictedMessage = (action: RestrictedAction) =>
-  `This ${actionLabel[action]} is blocked on the office network because the page, a subpage, or an attachment was created from the internal network.`;
+  i18n.t(restrictedMessageKey[action]);
 
 async function dataToMessage(data: unknown): Promise<string> {
   if (!data) return "";
@@ -54,7 +59,7 @@ export async function notifyNetworkOriginBlocked(
 ): Promise<boolean> {
   const message = await getNetworkOriginBlockedMessage(error, action);
   if (!message) return false;
-  notifications.show({ message, color: "red" });
+  notifications.show({ message, color: "red", position: "top-center" });
   return true;
 }
 
@@ -79,6 +84,7 @@ export async function downloadWithNetworkOriginGuard(
       notifications.show({
         message: restrictedMessage("download"),
         color: "red",
+        position: "top-center",
       });
       return;
     }
