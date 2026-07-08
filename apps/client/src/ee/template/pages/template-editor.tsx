@@ -23,7 +23,7 @@ import { useDisclosure, useWindowEvent } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import { Link, useParams } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
-import { getAppName } from "@/lib/config";
+import { getAppName, getEditorToolbarDefault } from "@/lib/config";
 import { useEditor, EditorContent } from "@tiptap/react";
 import { templateExtensions } from "@/features/editor/extensions/extensions";
 import {
@@ -47,7 +47,7 @@ export default function TemplateEditor() {
   const { isAdmin: isWorkspaceAdmin } = useUserRole();
   const user = useAtomValue(userAtom);
   const editorToolbarEnabled =
-    user?.settings?.preferences?.editorToolbar ?? false;
+    user?.settings?.preferences?.editorToolbar ?? getEditorToolbarDefault();
 
   const { data: existingTemplate } = useGetTemplateByIdQuery(templateId || "");
   const { data: spaces } = useGetSpacesQuery({ limit: 100 });

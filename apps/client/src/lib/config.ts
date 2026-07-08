@@ -86,6 +86,11 @@ export function getDrawioUrl() {
   return getConfigValue("DRAWIO_URL", "https://embed.diagrams.net");
 }
 
+export function getEditorToolbarDefault(): boolean {
+  // Default ON; server injects a boolean via window.CONFIG, dev reads env.
+  return castToBoolean(getConfigValue("EDITOR_TOOLBAR_DEFAULT", "true"));
+}
+
 export function getBillingTrialDays() {
   return getConfigValue("BILLING_TRIAL_DAYS");
 }

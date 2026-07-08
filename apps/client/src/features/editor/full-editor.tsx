@@ -1,4 +1,5 @@
 import classes from "@/features/editor/styles/editor.module.css";
+import { getEditorToolbarDefault } from "@/lib/config";
 import React, { useEffect } from "react";
 import { TitleEditor } from "@/features/editor/title-editor";
 import PageEditor from "@/features/editor/page-editor";
@@ -68,7 +69,7 @@ export function FullEditor({
   const [user] = useAtom(userAtom);
   const fullPageWidth = user.settings?.preferences?.fullPageWidth;
   const editorToolbarEnabled =
-    user.settings?.preferences?.editorToolbar ?? false;
+    user.settings?.preferences?.editorToolbar ?? getEditorToolbarDefault();
   const [currentPageEditMode, setCurrentPageEditMode] = useAtom(
     currentPageEditModeAtom,
   );

@@ -1,4 +1,5 @@
 import { BubbleMenu, BubbleMenuProps } from "@tiptap/react/menus";
+import { getEditorToolbarDefault } from "@/lib/config";
 import { isNodeSelection, useEditorState } from "@tiptap/react";
 import type { Editor } from "@tiptap/react";
 import { FC, useEffect, useRef, useState } from "react";
@@ -50,7 +51,7 @@ export const EditorBubbleMenu: FC<EditorBubbleMenuProps> = (props) => {
   const isGenerativeAiEnabled = workspace?.settings?.ai?.generative === true;
   const user = useAtomValue(userAtom);
   const editorToolbarEnabled =
-    user?.settings?.preferences?.editorToolbar ?? false;
+    user?.settings?.preferences?.editorToolbar ?? getEditorToolbarDefault();
   const [, setDraftCommentId] = useAtom(draftCommentIdAtom);
   const showCommentPopupRef = useRef(showCommentPopup);
   const showAiMenuRef = useRef(showAiMenu);

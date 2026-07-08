@@ -1,4 +1,5 @@
 import { userAtom } from "@/features/user/atoms/current-user-atom";
+import { getEditorToolbarDefault } from "@/lib/config";
 import { updateUser } from "@/features/user/services/user-service";
 import { Badge, Group, Switch, Text } from "@mantine/core";
 import { useAtom } from "jotai";
@@ -14,7 +15,7 @@ export default function FixedToolbarPref() {
   const { t } = useTranslation();
   const [user, setUser] = useAtom(userAtom);
   const [checked, setChecked] = useState(
-    user.settings?.preferences?.editorToolbar ?? false,
+    user.settings?.preferences?.editorToolbar ?? getEditorToolbarDefault(),
   );
 
   const handleChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
