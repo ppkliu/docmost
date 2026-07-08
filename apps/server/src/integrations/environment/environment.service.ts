@@ -96,6 +96,15 @@ export class EnvironmentService {
     return this.configService.get<string>('FILE_IMPORT_SIZE_LIMIT') || '200mb';
   }
 
+  getEditorToolbarDefault(): boolean {
+    // Default ON. Only an explicit `false` disables it; blank/unset stays true.
+    return (
+      this.configService.get<string>('EDITOR_TOOLBAR_DEFAULT') ?? 'true'
+    )
+      .toLowerCase()
+      .trim() !== 'false';
+  }
+
   getAwsS3AccessKeyId(): string {
     return this.configService.get<string>('AWS_S3_ACCESS_KEY_ID');
   }

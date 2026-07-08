@@ -50,6 +50,8 @@ export class StaticModule implements OnModuleInit {
           : undefined,
         POSTHOG_HOST: this.environmentService.getPostHogHost(),
         POSTHOG_KEY: this.environmentService.getPostHogKey(),
+        EDITOR_TOOLBAR_DEFAULT:
+          this.environmentService.getEditorToolbarDefault(),
       };
 
       const windowScriptContent = `<script>window.CONFIG=${JSON.stringify(configString)};</script>`;
