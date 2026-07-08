@@ -2,7 +2,7 @@ import { notifications } from "@mantine/notifications";
 import { saveAs } from "file-saver";
 import i18n from "@/i18n";
 
-type RestrictedAction = "download" | "export" | "print";
+type RestrictedAction = "download" | "export" | "print" | "copy";
 
 // Natural-language i18n keys (present in en-US + zh-CN); other locales fall back.
 const restrictedMessageKey: Record<RestrictedAction, string> = {
@@ -12,10 +12,18 @@ const restrictedMessageKey: Record<RestrictedAction, string> = {
     "This export is blocked on the office network because the page, a subpage, or an attachment was created from the internal network.",
   print:
     "This print is blocked on the office network because the page, a subpage, or an attachment was created from the internal network.",
+  copy:
+    "This copy is blocked on the office network because the page, a subpage, or an attachment was created from the internal network.",
 };
 
 const restrictedMessage = (action: RestrictedAction) =>
   i18n.t(restrictedMessageKey[action]);
+
+// For client-only actions (e.g. Copy as Markdown) that never receive a server
+// 403: the translated block message, e.g. for a disabled-menu-item tooltip.
+export function networkOriginBlockedText(action: RestrictedAction): string {
+  return restrictedMessage(action);
+}
 
 async function dataToMessage(data: unknown): Promise<string> {
   if (!data) return "";

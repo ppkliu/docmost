@@ -27,6 +27,7 @@ export interface IPage {
   permissions?: {
     canEdit: boolean;
     hasRestriction: boolean;
+    networkOriginBlocked?: boolean;
   };
 }
 

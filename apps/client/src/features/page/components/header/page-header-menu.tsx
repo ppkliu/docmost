@@ -34,6 +34,7 @@ import { usePageQuery } from "@/features/page/queries/page-query.ts";
 import { buildPageUrl } from "@/features/page/page.utils.ts";
 import { notifications } from "@mantine/notifications";
 import { getAppUrl } from "@/lib/config.ts";
+import { networkOriginBlockedText } from "@/lib/network-origin";
 import { extractPageSlugId } from "@/lib";
 import { useTreeMutation } from "@/features/page/tree/hooks/use-tree-mutation.ts";
 import { useDeletePageModal } from "@/features/page/hooks/use-delete-page-modal.tsx";
@@ -149,6 +150,9 @@ function PageActionMenu({ readOnly }: PageActionMenuProps) {
   const { data: page, isLoading } = usePageQuery({
     pageId: extractPageSlugId(pageSlug),
   });
+  // Same network-origin rule as download/export: office-network users cannot
+  // copy internal-origin content. Server computes this; client only reads it.
+  const networkOriginBlocked = page?.permissions?.networkOriginBlocked ?? false;
   const { openDeleteModal } = useDeletePageModal();
   const { handleDelete } = useTreeMutation(page?.spaceId ?? "");
   const [exportOpened, { open: openExportModal, close: closeExportModal }] =
@@ -180,6 +184,14 @@ function PageActionMenu({ readOnly }: PageActionMenuProps) {
   };
 
   const handleCopyAsMarkdown = () => {
+    if (networkOriginBlocked) {
+      notifications.show({
+        message: networkOriginBlockedText("copy"),
+        color: "red",
+        position: "top-center",
+      });
+      return;
+    }
     if (!pageEditor) return;
     const html = pageEditor.getHTML();
     const markdown = htmlToMarkdown(html);
@@ -234,12 +246,22 @@ function PageActionMenu({ readOnly }: PageActionMenuProps) {
             {t("Copy link")}
           </Menu.Item>
 
-          <Menu.Item
-            leftSection={<IconMarkdown size={16} />}
-            onClick={handleCopyAsMarkdown}
+          <Tooltip
+            label={networkOriginBlockedText("copy")}
+            disabled={!networkOriginBlocked}
+            position="left"
+            multiline
+            w={260}
+            withArrow
           >
-            {t("Copy as Markdown")}
-          </Menu.Item>
+            <Menu.Item
+              leftSection={<IconMarkdown size={16} />}
+              onClick={handleCopyAsMarkdown}
+              disabled={networkOriginBlocked}
+            >
+              {t("Copy as Markdown")}
+            </Menu.Item>
+          </Tooltip>
 
           <Menu.Item
             leftSection={
