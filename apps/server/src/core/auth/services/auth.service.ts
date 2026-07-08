@@ -40,6 +40,7 @@ import {
   IAuditService,
 } from '../../../integrations/audit/audit.service';
 import { EnvironmentService } from '../../../integrations/environment/environment.service';
+import { RequestZone } from '../../../common/services/network-origin.service';
 
 @Injectable()
 export class AuthService {
@@ -57,7 +58,11 @@ export class AuthService {
     @Inject(AUDIT_SERVICE) private readonly auditService: IAuditService,
   ) {}
 
-  async login(loginDto: LoginDto, workspaceId: string) {
+  async login(
+    loginDto: LoginDto,
+    workspaceId: string,
+    options: { zone?: RequestZone | null } = {},
+  ) {
     const user = await this.userRepo.findByEmail(loginDto.email, workspaceId, {
       includePassword: true,
     });
@@ -94,19 +99,24 @@ export class AuthService {
       metadata: { source: 'password' },
     });
 
-    return this.sessionService.createSessionAndToken(user);
+    const { token, zone } = await this.sessionService.createSessionAndToken(
+      user,
+      { zone: options.zone },
+    );
+    return { authToken: token, networkZone: zone };
   }
 
   async register(createUserDto: CreateUserDto, workspaceId: string) {
     const user = await this.signupService.signup(createUserDto, workspaceId);
-    return this.sessionService.createSessionAndToken(user);
+    const { token } = await this.sessionService.createSessionAndToken(user);
+    return token;
   }
 
   async setup(createAdminUserDto: CreateAdminUserDto) {
     const { workspace, user } =
       await this.signupService.initialSetup(createAdminUserDto);
 
-    const authToken = await this.sessionService.createSessionAndToken(user);
+    const { token: authToken } = await this.sessionService.createSessionAndToken(user);
     return { workspace, authToken };
   }
 
@@ -293,7 +303,7 @@ export class AuthService {
       };
     }
 
-    const authToken = await this.sessionService.createSessionAndToken(user);
+    const { token: authToken } = await this.sessionService.createSessionAndToken(user);
     return { authToken };
   }
 

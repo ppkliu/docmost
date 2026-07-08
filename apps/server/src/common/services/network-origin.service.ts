@@ -101,8 +101,8 @@ export class NetworkOriginService {
    * Zone resolution precedence:
    *
    * 1. **Session-stamped zone** — decided once, at login time: native Docmost
-   *    login uses `EnvironmentService.getNativeLoginZone()` (office by
-   *    business rule); WUJI SSO uses the
+   *    password login uses `DOCMOST_NATIVE_LOGIN_ZONE` (default office);
+   *    WUJI SSO uses the
    *    zone derived by wuji-adapter from its `WUJI_HOST` IP/CIDRs (or explicit
    *    `WUJI_ZONE`). `JwtStrategy.validate` reads it back per request and
    *    attaches it as `req.raw.sessionZone`. This is authoritative for any
@@ -173,11 +173,7 @@ export class NetworkOriginService {
    * silently trusting the CIDR-only result.
    */
   private resolveZone(ip: string, headers?: Record<string, unknown>): RequestZone {
-    const cidrZone: RequestZone = this.isInternalIp(ip)
-      ? 'internal'
-      : this.isOfficeIp(ip)
-        ? 'office'
-        : 'unknown';
+    const cidrZone = this.classifyIp(ip);
 
     const headerZone = this.resolveHeaderZone(headers);
 
@@ -401,6 +397,17 @@ export class NetworkOriginService {
     }
 
     return isIP(ip) ? ip : null;
+  }
+
+  /**
+   * Single CIDR primitive within docmost: classify an IP into a zone. Internal
+   * takes precedence over office when CIDR lists overlap. All IP-based zone
+   * decisions route through here.
+   */
+  private classifyIp(ip: string): RequestZone {
+    if (this.isInternalIp(ip)) return 'internal';
+    if (this.isOfficeIp(ip)) return 'office';
+    return 'unknown';
   }
 
   private isInternalIp(ip: string): boolean {

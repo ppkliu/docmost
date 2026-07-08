@@ -10,6 +10,7 @@ import {
   AUDIT_CONTEXT_KEY,
 } from '../../common/middlewares/audit-context.middleware';
 import * as Bowser from 'bowser';
+import { RequestZone } from '../../common/services/network-origin.service';
 
 const MAX_SESSIONS_PER_USER = 25;
 const RETENTION_DAYS = 7;
@@ -36,14 +37,21 @@ export class SessionService {
     }
   }
 
-  async createSessionAndToken(user: User): Promise<string> {
+  async createSessionAndToken(
+    user: User,
+    options: { zone?: RequestZone | null } = {},
+  ): Promise<{ token: string; zone: 'internal' | 'office' }> {
     const auditContext = this.cls.get<AuditContext>(AUDIT_CONTEXT_KEY);
     const ipAddress = auditContext?.ipAddress ?? null;
     const userAgent = auditContext?.userAgent ?? null;
 
     const deviceName = this.parseDeviceName(userAgent);
     const expiresAt = this.environmentService.getCookieExpiresIn();
-    const zone = this.environmentService.getNativeLoginZone();
+    // Single owner of the "which zone to stamp at login" decision:
+    // EnvironmentService.getLoginNetworkZone (override wins, else native .env).
+    const zone = this.environmentService.getLoginNetworkZone('native', {
+      overrideZone: options.zone,
+    });
 
     const session = await this.userSessionRepo.insertSession({
       userId: user.id,
@@ -51,12 +59,15 @@ export class SessionService {
       deviceName,
       ipAddress,
       expiresAt,
-      // Network-origin permissions: native Docmost login is always office by
-      // current business rule. WUJI SSO stamps its own zone in wuji-adapter.
-      metadata: { zone },
+      // Network-origin permissions: stamp the zone decided at login time when
+      // it is known. WUJI SSO stamps its own zone in wuji-adapter.
+      metadata: zone ? { zone } : null,
     });
 
-    return this.tokenService.generateAccessToken(user, session.id);
+    // Return the zone we actually stamped (single source of truth) so callers
+    // can echo the authoritative value instead of recomputing it.
+    const token = await this.tokenService.generateAccessToken(user, session.id);
+    return { token, zone };
   }
 
   async getActiveSessions(

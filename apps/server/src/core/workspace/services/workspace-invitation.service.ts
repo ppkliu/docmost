@@ -358,7 +358,7 @@ export class WorkspaceInvitationService {
       };
     }
 
-    const authToken = await this.sessionService.createSessionAndToken(newUser);
+    const { token: authToken } = await this.sessionService.createSessionAndToken(newUser);
     return { authToken };
   }
 

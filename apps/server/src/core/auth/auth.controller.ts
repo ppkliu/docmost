@@ -101,8 +101,14 @@ export class AuthController {
       }
     }
 
-    const authToken = await this.authService.login(loginInput, workspace.id);
+    const { authToken, networkZone } = await this.authService.login(
+      loginInput,
+      workspace.id,
+    );
     this.setAuthCookie(res, authToken);
+    // Echo the zone actually stamped on this session so the client can confirm
+    // whether this login was treated as internal or office (login-zone echo).
+    return { networkZone };
   }
 
   @UseGuards(SetupGuard)
