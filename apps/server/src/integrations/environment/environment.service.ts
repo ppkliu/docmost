@@ -438,21 +438,26 @@ export class EnvironmentService {
   }
 
   /**
-   * Dedicated login-source policy hook. Native Docmost login is always office
-   * by current business rule; WUJI SSO is handled by wuji-adapter before the
-   * session reaches Docmost. `overrideZone` is intentionally parameterized for
-   * future controlled callers/tests, not read from env for native login.
+   * Dedicated login-source policy hook. Native Docmost password login is
+   * deployment-configured because test/admin flows may intentionally simulate
+   * either side of the WUJI network split.
    */
   getLoginNetworkZone(
     source: LoginNetworkSource,
-    options: { overrideZone?: LoginNetworkZone | null } = {},
+    // Accepts 'unknown' (the request-zone widening) too: it simply falls through
+    // to the source default, same as a missing override.
+    options: { overrideZone?: LoginNetworkZone | 'unknown' | null } = {},
   ): LoginNetworkZone {
     if (options.overrideZone === 'internal' || options.overrideZone === 'office') {
       return options.overrideZone;
     }
 
     if (source === 'native') {
-      return 'office';
+      const zone = this.configService
+        .get<string>('DOCMOST_NATIVE_LOGIN_ZONE', 'office')
+        .trim()
+        .toLowerCase();
+      return zone === 'internal' ? 'internal' : 'office';
     }
 
     return 'internal';

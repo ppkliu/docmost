@@ -33,10 +33,14 @@ describe('EnvironmentService', () => {
       expect(service.getNativeLoginZone()).toBe('office');
     });
 
-    it('keeps native login office even when the configured WUJI host is internal', () => {
-      values.DOCMOST_INTERNAL_CIDRS = '10.7.0.0/16';
-      values.DOCMOST_OFFICE_CIDRS = '10.124.0.0/16';
-      values.DOCMOST_WUJI_HOST = '10.7.11.216';
+    it('can configure native login as internal for test deployments', () => {
+      values.DOCMOST_NATIVE_LOGIN_ZONE = 'internal';
+
+      expect(service.getNativeLoginZone()).toBe('internal');
+    });
+
+    it('falls back to office for invalid native login zone values', () => {
+      values.DOCMOST_NATIVE_LOGIN_ZONE = 'bogus';
 
       expect(service.getNativeLoginZone()).toBe('office');
     });

@@ -112,6 +112,11 @@ export class EnvironmentVariables {
   @IsString()
   AI_EMBEDDING_MODEL: string;
 
+  @IsOptional()
+  @IsIn(['office', 'internal'])
+  @IsString()
+  DOCMOST_NATIVE_LOGIN_ZONE: string;
+
   @ValidateIf((obj) => obj.AI_EMBEDDING_DIMENSION)
   @IsIn(['768', '1024', '1536', '2000', '3072'])
   @IsString()
