@@ -67,7 +67,12 @@ if [ "$MODE" = "prod" ]; then
     grn "已 pull 映像 $IMG"
   elif [ -f Dockerfile ]; then
     ylw "本地/registry 都沒有 $IMG,改用 Dockerfile build(第一次較久)…"
-    docker build -t "$IMG" .
+    NPM_REGISTRY_VAL="$(val NPM_REGISTRY https://registry.npmmirror.com)"
+    NODE_IMAGE_VAL="$(val NODE_IMAGE node:22-slim)"
+    docker build \
+      --build-arg "NODE_IMAGE=$NODE_IMAGE_VAL" \
+      --build-arg "NPM_REGISTRY=$NPM_REGISTRY_VAL" \
+      -t "$IMG" .
   else
     red "找不到映像 $IMG,且無法 pull、本地也沒有 Dockerfile 可 build。請任選一種:"
     echo "  A) 用官方映像:在 $ENV_FILE 設 DOCMOST_IMAGE=docmost/docmost:latest 後重跑(會自動 pull)"

@@ -8,6 +8,9 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.dev
+      args:
+        NODE_IMAGE: ${NODE_IMAGE:-node:22-slim}
+        NPM_REGISTRY: ${NPM_REGISTRY:-https://registry.npmmirror.com}
     depends_on:
       - db
       - valkey
