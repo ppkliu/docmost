@@ -18,6 +18,7 @@ import { PostHogProvider } from "posthog-js/react";
 import {
   getPostHogHost,
   getPostHogKey,
+  getPublicPathPrefix,
   isCloud,
   isPostHogEnabled,
 } from "@/lib/config.ts";
@@ -47,7 +48,7 @@ const container = document.getElementById("root") as HTMLElement;
 const root = (container as any).__reactRoot ??= ReactDOM.createRoot(container);
 
 root.render(
-  <BrowserRouter>
+  <BrowserRouter basename={getPublicPathPrefix() || undefined}>
     <MantineProvider theme={theme} cssVariablesResolver={mantineCssResolver}>
       <ModalsProvider>
         <QueryClientProvider client={queryClient}>

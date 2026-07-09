@@ -6,6 +6,8 @@ RUN npm install -g pnpm@10.4.0
 FROM base AS builder
 
 WORKDIR /app
+ARG DOCMOST_PUBLIC_PATH_PREFIX=
+ENV DOCMOST_PUBLIC_PATH_PREFIX=${DOCMOST_PUBLIC_PATH_PREFIX}
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml nx.json .npmrc ./
 COPY patches ./patches

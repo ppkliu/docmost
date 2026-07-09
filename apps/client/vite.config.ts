@@ -4,9 +4,16 @@ import * as path from "path";
 
 const envPath = path.resolve(process.cwd(), "..", "..");
 
+function normalizeBasePath(value?: string) {
+  const raw = (value || "").trim();
+  if (!raw || raw === "/") return "/";
+  return "/" + raw.replace(/^\/+|\/+$/g, "") + "/";
+}
+
 export default defineConfig(({ mode }) => {
   const {
     APP_URL,
+    DOCMOST_PUBLIC_PATH_PREFIX,
     FILE_UPLOAD_SIZE_LIMIT,
     FILE_IMPORT_SIZE_LIMIT,
     DRAWIO_URL,
@@ -19,13 +26,17 @@ export default defineConfig(({ mode }) => {
     SERVER_PROXY_URL,
   } = loadEnv(mode, envPath, "");
   const appUrl = process.env.APP_URL || APP_URL;
+  const publicPathPrefix =
+    process.env.DOCMOST_PUBLIC_PATH_PREFIX || DOCMOST_PUBLIC_PATH_PREFIX;
   const proxyTarget =
     process.env.SERVER_PROXY_URL || SERVER_PROXY_URL || appUrl;
 
   return {
+    base: normalizeBasePath(publicPathPrefix),
     define: {
       "process.env": {
         APP_URL: appUrl,
+        DOCMOST_PUBLIC_PATH_PREFIX: publicPathPrefix,
         FILE_UPLOAD_SIZE_LIMIT,
         FILE_IMPORT_SIZE_LIMIT,
         DRAWIO_URL,

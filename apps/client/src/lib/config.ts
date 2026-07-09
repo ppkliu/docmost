@@ -21,6 +21,12 @@ export function getServerAppUrl(): string {
   return getConfigValue("APP_URL");
 }
 
+export function getPublicPathPrefix(): string {
+  const raw = getConfigValue("DOCMOST_PUBLIC_PATH_PREFIX", "");
+  if (!raw || raw === "/") return "";
+  return "/" + raw.replace(/^\/+|\/+$/g, "");
+}
+
 export function getBackendUrl(): string {
   return getAppUrl() + "/api";
 }
