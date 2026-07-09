@@ -5,6 +5,20 @@ import * as fs from 'node:fs';
 import fastifyStatic from '@fastify/static';
 import { EnvironmentService } from '../environment/environment.service';
 
+function normalizePublicPathPrefix(value?: string): string {
+  const raw = (value || '').trim();
+  if (!raw || raw === '/') return '';
+  return `/${raw.replace(/^\/+|\/+$/g, '')}`;
+}
+
+function prefixIndexAssetUrls(html: string, publicPathPrefix: string): string {
+  if (!publicPathPrefix) return html;
+  return html.replace(
+    /\b(src|href)="\/((?:assets|icons)\/[^"]+|manifest\.json)"/g,
+    (_match, attr, path) => `${attr}="${publicPathPrefix}/${path}"`,
+  );
+}
+
 @Module({})
 export class StaticModule implements OnModuleInit {
   constructor(
@@ -31,11 +45,14 @@ export class StaticModule implements OnModuleInit {
       const indexTemplateFilePath = join(clientDistPath, 'index-template.html');
       const windowVar = '<!--window-config-->';
 
+      const publicPathPrefix = normalizePublicPathPrefix(
+        process.env.DOCMOST_PUBLIC_PATH_PREFIX,
+      );
+
       const configString = {
         ENV: this.environmentService.getNodeEnv(),
         APP_URL: this.environmentService.getAppUrl(),
-        DOCMOST_PUBLIC_PATH_PREFIX:
-          process.env.DOCMOST_PUBLIC_PATH_PREFIX || undefined,
+        DOCMOST_PUBLIC_PATH_PREFIX: publicPathPrefix || undefined,
         APP_NAME: process.env.APP_NAME || undefined,
         CLOUD: this.environmentService.isCloud(),
         FILE_UPLOAD_SIZE_LIMIT:
@@ -63,7 +80,10 @@ export class StaticModule implements OnModuleInit {
       }
 
       const html = fs.readFileSync(indexTemplateFilePath, 'utf8');
-      const transformedHtml = html.replace(windowVar, windowScriptContent);
+      const transformedHtml = prefixIndexAssetUrls(
+        html.replace(windowVar, windowScriptContent),
+        publicPathPrefix,
+      );
 
       fs.writeFileSync(indexFilePath, transformedHtml);
 

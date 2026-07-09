@@ -27,16 +27,36 @@ export function getPublicPathPrefix(): string {
   return "/" + raw.replace(/^\/+|\/+$/g, "");
 }
 
+export function getPublicBaseUrl(): string {
+  return getAppUrl() + getPublicPathPrefix();
+}
+
+export function withPublicPath(path: string): string {
+  const normalizedPath = path.startsWith("/") ? path : "/" + path;
+  const prefix = getPublicPathPrefix();
+  if (!prefix || normalizedPath === prefix || normalizedPath.startsWith(prefix + "/")) {
+    return normalizedPath;
+  }
+  return prefix + normalizedPath;
+}
+
+export function stripPublicPath(path: string): string {
+  const prefix = getPublicPathPrefix();
+  if (!prefix) return path;
+  if (path === prefix) return "/";
+  if (path.startsWith(prefix + "/")) return path.slice(prefix.length);
+  return path;
+}
+
 export function getBackendUrl(): string {
-  return getAppUrl() + "/api";
+  return getPublicBaseUrl() + "/api";
 }
 
 export function getCollaborationUrl(): string {
-  const baseUrl =
-    getConfigValue("COLLAB_URL") ||
-    (import.meta.env.DEV ? process.env.APP_URL : getAppUrl());
-
-  const collabUrl = new URL("/collab", baseUrl);
+  const configuredUrl = getConfigValue("COLLAB_URL");
+  const baseUrl = configuredUrl || (import.meta.env.DEV ? process.env.APP_URL : getAppUrl());
+  const collabPath = configuredUrl ? "/collab" : getPublicPathPrefix() + "/collab";
+  const collabUrl = new URL(collabPath, baseUrl);
   collabUrl.protocol = collabUrl.protocol === "https:" ? "wss:" : "ws:";
   return collabUrl.toString();
 }
