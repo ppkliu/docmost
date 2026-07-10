@@ -1,16 +1,19 @@
 import axios, { AxiosInstance } from "axios";
 import APP_ROUTE from "@/lib/app-route.ts";
-import { isCloud } from "@/lib/config.ts";
+import { getBackendUrl, isCloud, withPublicPath } from "@/lib/config.ts";
 
 const api: AxiosInstance = axios.create({
-  baseURL: "/api",
+  baseURL: getBackendUrl(),
   withCredentials: true,
 });
 
 api.interceptors.response.use(
   (response) => {
     // we need the response headers for these endpoints
-    const exemptEndpoints = ["/api/pages/export", "/api/spaces/export"];
+    const exemptEndpoints = [
+      withPublicPath("/api/pages/export"),
+      withPublicPath("/api/spaces/export"),
+    ];
     if (response.request.responseURL) {
       const path = new URL(response.request.responseURL)?.pathname;
       if (path && exemptEndpoints.includes(path)) {
@@ -25,7 +28,7 @@ api.interceptors.response.use(
       switch (error.response.status) {
         case 401: {
           const url = new URL(error.request.responseURL)?.pathname;
-          if (url === "/api/auth/collab-token") return;
+          if (url === withPublicPath("/api/auth/collab-token")) return;
           if (window.location.pathname.startsWith("/share/")) return;
 
           // Handle unauthorized error
