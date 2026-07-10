@@ -51,13 +51,19 @@ export default defineConfig(({ mode }) => {
     },
     plugins: [react()],
     build: {
+      // Mermaid/Excalidraw contain individual generated modules above 500 kB.
+      // They are loaded lazily and cannot be split further by maxSize.
+      chunkSizeWarningLimit: 1_900,
       rolldownOptions: {
         output: {
-          advancedChunks: {
+          codeSplitting: {
+            maxSize: 450_000,
             groups: [
               {
                 name: "vendor-mantine",
                 test: /[\\/]node_modules[\\/]@mantine[\\/]/,
+                maxSize: 450_000,
+                priority: 20,
               },
             ],
           },
