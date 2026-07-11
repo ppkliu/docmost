@@ -19,6 +19,27 @@ function prefixIndexAssetUrls(html: string, publicPathPrefix: string): string {
   );
 }
 
+export function readFreshIndexTemplate(
+  indexFilePath: string,
+  indexTemplateFilePath: string,
+  marker: string,
+): string {
+  const currentIndex = fs.readFileSync(indexFilePath, 'utf8');
+
+  // A fresh Vite build contains the injection marker. Refresh a template left
+  // behind by an overlay deployment so it cannot reference obsolete hashes.
+  if (currentIndex.includes(marker)) {
+    fs.copyFileSync(indexFilePath, indexTemplateFilePath);
+    return currentIndex;
+  }
+
+  if (fs.existsSync(indexTemplateFilePath)) {
+    return fs.readFileSync(indexTemplateFilePath, 'utf8');
+  }
+
+  return currentIndex;
+}
+
 @Module({})
 export class StaticModule implements OnModuleInit {
   constructor(
@@ -75,11 +96,11 @@ export class StaticModule implements OnModuleInit {
 
       const windowScriptContent = `<script>window.CONFIG=${JSON.stringify(configString)};</script>`;
 
-      if (!fs.existsSync(indexTemplateFilePath)) {
-        fs.copyFileSync(indexFilePath, indexTemplateFilePath);
-      }
-
-      const html = fs.readFileSync(indexTemplateFilePath, 'utf8');
+      const html = readFreshIndexTemplate(
+        indexFilePath,
+        indexTemplateFilePath,
+        windowVar,
+      );
       const transformedHtml = prefixIndexAssetUrls(
         html.replace(windowVar, windowScriptContent),
         publicPathPrefix,
@@ -93,6 +114,17 @@ export class StaticModule implements OnModuleInit {
         root: clientDistPath,
         wildcard: false,
       });
+
+      // Caddy strips the public prefix, while direct access and some upstream
+      // proxies preserve it. Serve build assets correctly in both topologies.
+      if (publicPathPrefix) {
+        await app.register(fastifyStatic, {
+          root: clientDistPath,
+          prefix: `${publicPathPrefix}/`,
+          wildcard: false,
+          decorateReply: false,
+        });
+      }
 
       app.get(RENDER_PATH, (req: any, res: any) => {
         const stream = fs.createReadStream(indexFilePath);
