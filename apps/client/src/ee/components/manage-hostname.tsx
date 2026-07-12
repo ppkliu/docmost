@@ -7,7 +7,7 @@ import { useForm } from "@mantine/form";
 import { zod4Resolver } from "mantine-form-zod-resolver";
 import { notifications } from "@mantine/notifications";
 import { useTranslation } from "react-i18next";
-import { getSubdomainHost } from "@/lib/config.ts";
+import { getSubdomainHost, withPublicPath } from "@/lib/config.ts";
 import { IWorkspace } from "@/features/workspace/types/workspace.types.ts";
 import { updateWorkspace } from "@/features/workspace/services/workspace-service.ts";
 import { getHostnameUrl } from "@/ee/utils.ts";
@@ -86,7 +86,8 @@ function ChangeHostnameForm({ onClose }: ChangeHostnameFormProps) {
         hostname: data.hostname,
       });
       setCurrentUser(RESET);
-      window.location.href = getHostnameUrl(data.hostname.toLowerCase());
+      window.location.href =
+        getHostnameUrl(data.hostname.toLowerCase()) + withPublicPath("/");
     } catch (err) {
       notifications.show({
         message: err?.response?.data?.message,

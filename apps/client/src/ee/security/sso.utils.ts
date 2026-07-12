@@ -1,12 +1,12 @@
 import { SSO_PROVIDER } from "@/ee/security/contants.ts";
-import { getAppUrl, getServerAppUrl } from "@/lib/config.ts";
+import { getPublicBaseUrl, getServerAppUrl } from "@/lib/config.ts";
 
 export function buildCallbackUrl(opts: {
   providerId: string;
   type: SSO_PROVIDER;
 }): string {
   const { providerId, type } = opts;
-  const domain = getAppUrl();
+  const domain = getPublicBaseUrl();
 
   if (type === SSO_PROVIDER.GOOGLE) {
     return `${domain}/api/sso/${type}/callback`;
@@ -21,7 +21,7 @@ export function buildSsoLoginUrl(opts: {
   redirect?: string;
 }): string {
   const { providerId, type, workspaceId, redirect } = opts;
-  const domain = getAppUrl();
+  const domain = getPublicBaseUrl();
 
   const params = new URLSearchParams();
   if (redirect) params.set("redirect", redirect);
@@ -41,6 +41,6 @@ export function getGoogleSignupUrl(): string {
 }
 
 export function buildSamlEntityId(providerId: string): string {
-  const domain = getAppUrl();
+  const domain = getPublicBaseUrl();
   return `${domain}/api/sso/${SSO_PROVIDER.SAML}/${providerId}/login`;
 }

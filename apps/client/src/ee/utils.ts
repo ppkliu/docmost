@@ -1,4 +1,8 @@
-import { getServerAppUrl, getSubdomainHost } from "@/lib/config.ts";
+import {
+  getServerAppUrl,
+  getSubdomainHost,
+  withPublicPath,
+} from "@/lib/config.ts";
 
 export function getHostnameUrl(hostname: string): string {
   const url = new URL(getServerAppUrl());
@@ -12,5 +16,10 @@ export function exchangeTokenRedirectUrl(
   hostname: string,
   exchangeToken: string,
 ) {
-  return getHostnameUrl(hostname) + "/api/auth/exchange?token=" + exchangeToken;
+  return (
+    getHostnameUrl(hostname) +
+    withPublicPath("/api/auth/exchange") +
+    "?token=" +
+    exchangeToken
+  );
 }

@@ -6,6 +6,7 @@ import { IconChevronRight } from "@tabler/icons-react";
 import { getHostnameUrl } from "@/ee/utils.ts";
 import { Link } from "react-router-dom";
 import { IWorkspace } from "@/features/workspace/types/workspace.types.ts";
+import { withPublicPath } from "@/lib/config.ts";
 
 export default function JoinedWorkspaces() {
   const { data, isLoading } = useJoinedWorkspacesQuery();
@@ -21,7 +22,7 @@ export default function JoinedWorkspaces() {
           <UnstyledButton
             key={index}
             component={Link}
-            to={getHostnameUrl(workspace?.hostname) + "/home"}
+            to={getHostnameUrl(workspace?.hostname) + withPublicPath("/home")}
             className={classes.workspace}
           >
             <Group wrap="nowrap">
