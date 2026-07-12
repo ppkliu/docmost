@@ -26,7 +26,7 @@ import {
 import APP_ROUTE, { getPostLoginRedirect } from "@/lib/app-route.ts";
 import { RESET } from "jotai/utils";
 import { useTranslation } from "react-i18next";
-import { isCloud } from "@/lib/config.ts";
+import { isCloud, withPublicPath } from "@/lib/config.ts";
 import { exchangeTokenRedirectUrl, getHostnameUrl } from "@/ee/utils.ts";
 
 export default function useAuth() {
@@ -107,7 +107,7 @@ export default function useAuth() {
           if (hostname) {
             window.location.href =
               getHostnameUrl(hostname) +
-              `/verify-email?email=${encodeURIComponent(data.email)}&sig=${res.emailSignature}`;
+              `${withPublicPath("/verify-email")}?email=${encodeURIComponent(data.email)}&sig=${res.emailSignature}`;
           }
           return;
         }
@@ -166,7 +166,7 @@ export default function useAuth() {
   const handleLogout = async () => {
     setCurrentUser(RESET);
     await logout();
-    window.location.replace(`${APP_ROUTE.AUTH.LOGIN}?logout=1`);
+    window.location.replace(`${withPublicPath(APP_ROUTE.AUTH.LOGIN)}?logout=1`);
   };
 
   const handleForgotPassword = async (data: IForgotPassword) => {

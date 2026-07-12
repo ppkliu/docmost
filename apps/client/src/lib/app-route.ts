@@ -1,3 +1,5 @@
+import { stripPublicPath } from "@/lib/config.ts";
+
 const APP_ROUTE = {
   HOME: "/home",
   SPACES: "/spaces",
@@ -51,7 +53,8 @@ export function safeRedirectPath(input: unknown): string | null {
 
 export function getPostLoginRedirect(): string {
   const params = new URLSearchParams(window.location.search);
-  return safeRedirectPath(params.get("redirect")) ?? APP_ROUTE.HOME;
+  const redirect = safeRedirectPath(params.get("redirect"));
+  return redirect ? stripPublicPath(redirect) : APP_ROUTE.HOME;
 }
 
 /**
@@ -62,7 +65,8 @@ export function getPostLoginRedirect(): string {
  */
 export function getRedirectParam(): string | null {
   const params = new URLSearchParams(window.location.search);
-  return safeRedirectPath(params.get("redirect"));
+  const redirect = safeRedirectPath(params.get("redirect"));
+  return redirect ? stripPublicPath(redirect) : null;
 }
 
 export default APP_ROUTE;

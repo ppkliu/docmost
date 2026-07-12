@@ -1,6 +1,11 @@
 import axios, { AxiosInstance } from "axios";
 import APP_ROUTE from "@/lib/app-route.ts";
-import { getBackendUrl, isCloud, withPublicPath } from "@/lib/config.ts";
+import {
+  getBackendUrl,
+  isCloud,
+  stripPublicPath,
+  withPublicPath,
+} from "@/lib/config.ts";
 
 const api: AxiosInstance = axios.create({
   baseURL: getBackendUrl(),
@@ -29,7 +34,8 @@ api.interceptors.response.use(
         case 401: {
           const url = new URL(error.request.responseURL)?.pathname;
           if (url === withPublicPath("/api/auth/collab-token")) return;
-          if (window.location.pathname.startsWith("/share/")) return;
+          if (window.location.pathname.startsWith(withPublicPath("/share/")))
+            return;
 
           // Handle unauthorized error
           redirectToLogin();
@@ -46,11 +52,9 @@ api.interceptors.response.use(
               .includes("workspace not found")
           ) {
             console.log("workspace not found");
-            if (
-              !isCloud() &&
-              window.location.pathname != APP_ROUTE.AUTH.SETUP
-            ) {
-              window.location.href = APP_ROUTE.AUTH.SETUP;
+            const setupPath = withPublicPath(APP_ROUTE.AUTH.SETUP);
+            if (!isCloud() && window.location.pathname != setupPath) {
+              window.location.href = setupPath;
             }
           }
           break;
@@ -66,6 +70,7 @@ api.interceptors.response.use(
 );
 
 function redirectToLogin() {
+  const currentPath = stripPublicPath(window.location.pathname);
   const exemptPaths = [
     APP_ROUTE.AUTH.LOGIN,
     APP_ROUTE.AUTH.SIGNUP,
@@ -75,13 +80,14 @@ function redirectToLogin() {
     APP_ROUTE.AUTH.MFA_SETUP_REQUIRED,
     "/invites",
   ];
-  if (!exemptPaths.some((path) => window.location.pathname.startsWith(path))) {
-    const redirectTo = window.location.pathname;
+  if (!exemptPaths.some((path) => currentPath.startsWith(path))) {
+    const redirectTo = currentPath;
+    const loginPath = withPublicPath(APP_ROUTE.AUTH.LOGIN);
     if (redirectTo === APP_ROUTE.HOME) {
-      window.location.href = APP_ROUTE.AUTH.LOGIN;
+      window.location.href = loginPath;
     } else {
       const params = new URLSearchParams({ redirect: redirectTo });
-      window.location.href = `${APP_ROUTE.AUTH.LOGIN}?${params.toString()}`;
+      window.location.href = `${loginPath}?${params.toString()}`;
     }
   }
 }
