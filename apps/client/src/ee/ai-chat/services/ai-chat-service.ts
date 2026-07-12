@@ -6,6 +6,7 @@ import type {
   ChatAttachment,
 } from "../types/ai-chat.types";
 import { IPagination } from "@/lib/types.ts";
+import { withPublicPath } from "@/lib/config.ts";
 
 export async function createChat(): Promise<AiChat> {
   const req = await api.post<AiChat>("/ai/chats/create");
@@ -73,7 +74,7 @@ export function sendChatMessage(
 
   (async () => {
     try {
-      const response = await fetch("/api/ai/chats/send", {
+      const response = await fetch(withPublicPath("/api/ai/chats/send"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(params),

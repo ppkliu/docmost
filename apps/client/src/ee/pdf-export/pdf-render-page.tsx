@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import ReadonlyPageEditor from "@/features/editor/readonly-page-editor";
 import { Container } from "@mantine/core";
+import { withPublicPath } from "@/lib/config.ts";
 
 type PdfRenderData = {
   pageId: string;
@@ -24,9 +25,9 @@ export default function PdfRenderPage() {
       return;
     }
 
-    fetch('/api/pdf-export/render', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+    fetch(withPublicPath("/api/pdf-export/render"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ pageId, token }),
     })
       .then((res) => {

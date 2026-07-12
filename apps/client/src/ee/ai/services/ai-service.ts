@@ -5,6 +5,7 @@ import {
   AiStreamChunk,
   AiStreamError,
 } from "@/ee/ai/types/ai.types.ts";
+import { withPublicPath } from "@/lib/config.ts";
 
 export async function generateAiContent(
   data: AiGenerateDto,
@@ -21,7 +22,7 @@ export async function generateAiContentStream(
 ): Promise<AbortController> {
   const abortController = new AbortController();
   try {
-    const response = await fetch("/api/ai/generate/stream", {
+    const response = await fetch(withPublicPath("/api/ai/generate/stream"), {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
