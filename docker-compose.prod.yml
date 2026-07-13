@@ -17,7 +17,7 @@ services:
       - ${APP_HOST_PORT:-3010}:3000
     restart: unless-stopped
     volumes:
-      - ./data/prod/docmost:/app/data/storage
+      - ${DOCMOST_STORAGE_DIR:-./data/prod/docmost}:/app/data/storage
 
   db:
     image: pgvector/pgvector:0.8.2-pg18-trixie
@@ -30,7 +30,7 @@ services:
       - ${POSTGRES_HOST_PORT:-25432}:5432
     restart: unless-stopped
     volumes:
-      - ./data/prod/db:/var/lib/postgresql
+      - ${DOCMOST_DB_DATA_DIR:-./data/prod/db}:/var/lib/postgresql
 
   valkey:
     image: valkey/valkey:9.1-alpine3.23
@@ -40,4 +40,4 @@ services:
       - ${REDIS_HOST_PORT:-26378}:6379
     restart: unless-stopped
     volumes:
-      - ./data/prod/valkey:/data
+      - ${DOCMOST_VALKEY_DATA_DIR:-./data/prod/valkey}:/data
