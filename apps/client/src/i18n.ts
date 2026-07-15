@@ -15,14 +15,17 @@ i18n
     fallbackLng: "zh-CN",
     debug: false,
     showSupportNotice: false,
-    load: 'currentOnly',
+    load: "currentOnly",
+    backend: {
+      loadPath: `${import.meta.env.BASE_URL}locales/{{lng}}/translation.json`,
+    },
 
     interpolation: {
       escapeValue: false, // not needed for react as it escapes by default
     },
     react: {
       useSuspense: false,
-    }
+    },
   });
 
 export default i18n;
