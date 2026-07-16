@@ -503,6 +503,10 @@ export class AttachmentController {
     const rangeHeader = req.headers.range;
 
     res.header('Accept-Ranges', 'bytes');
+    const cacheControl =
+      cacheScope === 'private'
+        ? 'private, no-store'
+        : 'public, max-age=3600';
     res.header(
       'Content-Security-Policy',
       "base-uri 'none'; object-src 'self'; default-src 'self';",
@@ -539,7 +543,7 @@ export class AttachmentController {
           'Content-Type': attachment.mimeType,
           'Content-Range': `bytes ${start}-${end}/${fileSize}`,
           'Content-Length': end - start + 1,
-          'Cache-Control': `${cacheScope}, max-age=3600`,
+          'Cache-Control': cacheControl,
         });
 
         return res.send(fileStream);
@@ -552,7 +556,7 @@ export class AttachmentController {
 
     res.headers({
       'Content-Type': attachment.mimeType,
-      'Cache-Control': `${cacheScope}, max-age=3600`,
+      'Cache-Control': cacheControl,
     });
 
     const isSvg = attachment.fileExt === '.svg';

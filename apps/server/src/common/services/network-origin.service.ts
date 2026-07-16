@@ -100,19 +100,23 @@ export class NetworkOriginService {
   /**
    * Zone resolution precedence:
    *
-   * 1. **Session-stamped zone** — decided once, at login time: native Docmost
+   * 1. **WUJI request Host allowlist** — when `WUJI_INTERNAL_IPS` is non-empty,
+   *    the current URL Host must be in that list to qualify as internal;
+   *    every other/missing Host is office. If a session zone exists, the
+   *    stricter of the session and current Host wins, so changing the URL can
+   *    downgrade but never elevate a session.
+   * 2. **Session-stamped zone** — decided once, at login time: native Docmost
    *    password login uses `DOCMOST_NATIVE_LOGIN_ZONE` (default office);
-   *    WUJI SSO uses the
-   *    zone derived by wuji-adapter from its `WUJI_HOST` IP/CIDRs (or explicit
-   *    `WUJI_ZONE`). `JwtStrategy.validate` reads it back per request and
+   *    WUJI SSO uses the zone derived by wuji-adapter from the request URL Host
+   *    and `WUJI_INTERNAL_IPS`. `JwtStrategy.validate` reads it back per request and
    *    attaches it as `req.raw.sessionZone`. This is authoritative for any
    *    authenticated request — it does not re-derive from the current request's
    *    IP, so a session started on one network still works correctly if the
    *    user's IP momentarily looks ambiguous (VPN, proxy).
-   * 2. `DOCMOST_DEPLOYMENT_ZONE` static override — fallback for requests with
+   * 3. `DOCMOST_DEPLOYMENT_ZONE` static override — fallback for requests with
    *    no session to read (public share links, API keys) on a topology where
    *    the *entire deployment* sits permanently in one network.
-   * 3. Hybrid header+CIDR resolution (`resolveZone`, below) — fallback for a
+   * 4. Hybrid header+CIDR resolution (`resolveZone`, below) — fallback for a
    *    *single shared* deployment serving both networks with no session
    *    context, classifying by Caddy's dual entrances +
    *    `DOCMOST_INTERNAL_CIDRS`/`DOCMOST_OFFICE_CIDRS` (Phase 8 / G1).
@@ -121,6 +125,14 @@ export class NetworkOriginService {
     req: FastifyRequest | { ip?: string; headers?: any; raw?: { sessionZone?: string } },
   ): RequestZone {
     const sessionZone = (req as any)?.raw?.sessionZone;
+    const hostZone = this.resolveWujiHostZone(req.headers);
+    if (hostZone) {
+      if (sessionZone === 'internal' || sessionZone === 'office') {
+        return this.stricterZone(sessionZone, hostZone);
+      }
+      return hostZone;
+    }
+
     if (sessionZone === 'internal' || sessionZone === 'office') {
       return sessionZone;
     }
@@ -133,6 +145,32 @@ export class NetworkOriginService {
     const ip = this.resolveClientIp(req);
     if (!ip) return 'unknown';
     return this.resolveZone(ip, req.headers);
+  }
+
+  private resolveWujiHostZone(
+    headers?: Record<string, unknown>,
+  ): RequestZone | null {
+    // `undefined` only exists in legacy/test EnvironmentService implementations
+    // that predate this setting. The real service always returns an array;
+    // an explicitly empty/invalid array therefore still means "all office".
+    const configured = this.environmentService.getWujiInternalIps?.();
+    if (configured == null) return null;
+    const allowlist = configured.filter((ip) => isIP(ip));
+
+    const raw = headers?.host;
+    const value = Array.isArray(raw) ? raw[0] : raw;
+    if (typeof value !== 'string' || !value.trim()) return 'office';
+
+    try {
+      const host = new URL(`http://${value.trim()}`).hostname;
+      return isIP(host) && allowlist.includes(host) ? 'internal' : 'office';
+    } catch {
+      return 'office';
+    }
+  }
+
+  private stricterZone(a: RequestZone, b: RequestZone): RequestZone {
+    return ZONE_RANK[a] <= ZONE_RANK[b] ? a : b;
   }
 
   /**

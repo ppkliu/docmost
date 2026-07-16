@@ -394,6 +394,17 @@ export class EnvironmentService {
       .filter(Boolean);
   }
 
+  getWujiInternalIps(): string[] {
+    const raw = this.configService.get<string>(
+      'WUJI_INTERNAL_IPS',
+      '100.19.8.25',
+    );
+    return raw
+      .split(',')
+      .map((ip) => ip.trim())
+      .filter(Boolean);
+  }
+
   getOriginNetworkMaskV4(): number {
     return this.clampCidrMask(
       parseInt(
