@@ -4,6 +4,7 @@ function makeService(overrides: Partial<any> = {}) {
   const env = {
     getInternalCidrs: jest.fn().mockReturnValue(['100.0.0.0/8']),
     getOfficeCidrs: jest.fn().mockReturnValue(['172.20.0.0/16']),
+    getWujiInternalIps: jest.fn().mockReturnValue(undefined),
     getOriginNetworkMaskV4: jest.fn().mockReturnValue(24),
     getOriginNetworkMaskV6: jest.fn().mockReturnValue(64),
     getUnknownOriginPolicy: jest.fn().mockReturnValue('allow'),
@@ -73,6 +74,49 @@ describe('NetworkOriginService', () => {
       );
       expect(service.isCurrentUserInternal(req('100.1.2.3'))).toBe(true);
       expect(service.isCurrentUserOffice(req('172.20.8.44'))).toBe(true);
+    });
+
+    it('uses the WUJI URL Host allowlist and defaults every other Host to office', () => {
+      const { service } = makeService({
+        getWujiInternalIps: jest.fn().mockReturnValue(['100.19.8.25']),
+      });
+
+      expect(
+        service.getCurrentUserNetworkZone(
+          req('10.0.0.10', { host: '100.19.8.25:80' }),
+        ),
+      ).toBe('internal');
+      expect(
+        service.getCurrentUserNetworkZone(
+          req('100.19.8.25', { host: '10.7.11.216' }),
+        ),
+      ).toBe('office');
+      expect(service.getCurrentUserNetworkZone(req('100.19.8.25'))).toBe(
+        'office',
+      );
+
+      const { service: emptyAllowlist } = makeService({
+        getWujiInternalIps: jest.fn().mockReturnValue([]),
+      });
+      expect(
+        emptyAllowlist.getCurrentUserNetworkZone(
+          req('100.19.8.25', { host: '100.19.8.25' }),
+        ),
+      ).toBe('office');
+    });
+
+    it('takes the stricter of session and current WUJI Host zones', () => {
+      const { service } = makeService({
+        getWujiInternalIps: jest.fn().mockReturnValue(['100.19.8.25']),
+      });
+      const request = req('10.0.0.10', { host: '100.19.8.25' });
+      request.raw = { sessionZone: 'office' };
+
+      expect(service.getCurrentUserNetworkZone(request)).toBe('office');
+
+      request.raw = { sessionZone: 'internal' };
+      request.headers.host = '10.7.11.216';
+      expect(service.getCurrentUserNetworkZone(request)).toBe('office');
     });
   });
 
