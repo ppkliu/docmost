@@ -489,8 +489,17 @@ export class AttachmentController {
     attachment: Attachment,
   ): boolean {
     const isImage = attachment.mimeType?.startsWith('image/') ?? false;
+    if (!isImage) return false;
+    // Fork behavior: keep images viewable from any network zone (internal &
+    // external) by treating every image request as exempt from the
+    // network-origin rule, not just Sec-Fetch-Dest:image embeds. Non-image
+    // attachments stay zone-gated. Toggle off with
+    // DOCMOST_IMAGE_VIEW_IGNORE_NETWORK_ORIGIN=false.
+    if (this.environmentService.getImageViewIgnoreNetworkOrigin()) {
+      return true;
+    }
     const secFetchDest = req.headers?.['sec-fetch-dest'];
-    return isImage && secFetchDest === 'image';
+    return secFetchDest === 'image';
   }
 
   private async sendFileResponse(

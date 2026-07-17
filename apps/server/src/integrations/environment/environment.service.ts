@@ -443,6 +443,21 @@ export class EnvironmentService {
   }
 
   /**
+   * When true (default), serving image attachments ignores the network-origin
+   * (internal/office zone) rule entirely, so images stay viewable from both the
+   * internal and external networks regardless of the request shape. Non-image
+   * attachments (pdf/office/zip/...) are unaffected and still zone-gated. Set to
+   * false to restore the Sec-Fetch-Dest-gated inline-image exemption only.
+   */
+  getImageViewIgnoreNetworkOrigin(): boolean {
+    return (
+      this.configService
+        .get<string>('DOCMOST_IMAGE_VIEW_IGNORE_NETWORK_ORIGIN', 'true')
+        .toLowerCase() === 'true'
+    );
+  }
+
+  /**
    * Static zone override for per-zone-deployment topologies: set this when
    * the whole docmost+adapter+caddy stack permanently belongs to one network
    * (see NetworkOriginService.getRequestZone doc comment). Unset (empty
