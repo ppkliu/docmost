@@ -1,7 +1,7 @@
 # 子路徑前綴(Public Path Prefix)— 前端 API 接線
 
 狀態:已完成
-日期:2026-07-10；補完:2026-07-12
+日期:2026-07-10；補完:2026-07-12、2026-07-16
 
 ## 背景
 
@@ -91,6 +91,59 @@
 若 IdP 只允許一個 callback，應只讓 canonical WUJI host 顯示該 SSO provider，Wiki direct
 host 改用原生登入或導回 canonical host。
 
+## WebSocket:socket.io 未套前綴 — 已完成(2026-07-16)
+
+### 症狀
+
+外層 nginx 只把 `/wiki/*` 轉給 Caddy 的部署下,瀏覽器 console 持續刷:
+
+```text
+WebSocket connection to 'ws://<host>/socket.io/?EIO=4&transport=websocket' failed
+```
+
+### 根因
+
+`collab` 那條 WebSocket 早就正確帶前綴(`getCollaborationUrl()` = `getPublicPathPrefix() + "/collab"`,
+見本檔案上方與 `config.ts`),但 `socket.io` 這條漏了:
+
+- `apps/client/src/features/websocket/types/constants.ts` 的 `SOCKET_URL = undefined`;
+- `apps/client/src/features/user/user-provider.tsx` 呼叫 `io(SOCKET_URL, {...})` **沒給 `path`**。
+
+socket.io-client 在沒有 `path` 時預設打「當前 origin + `/socket.io/`」,**永遠不帶 `/wiki`**。
+於是裸 `/socket.io/` 打到外層 nginx 就落進 SPA fallback(回一份 index.html,無 `Via: Caddy`),
+拿不到 `101 Switching Protocols`,socket.io-client 因只用 websocket transport、不降級 polling 而無限重試。
+
+用 curl 對照即可證實:`/socket.io/`(裸)回 `text/html`、無 `Via: Caddy`;
+`/wiki/socket.io/` 回 socket.io 的 JSON 且帶 `Via: 1.1 Caddy`(已穿過 Caddy 到達真正的 server)。
+
+後端 socket.io server 仍聽預設 `/socket.io`;Caddy 的 `handle_path {$DOCMOST_PUBLIC_PATH_PREFIX}/*`
+會把 `/wiki` 剝掉再轉給 docmost,所以**後端不需要任何改動**,只需前端把公開路徑補上前綴。
+
+### 修正
+
+- `config.ts` 新增與 `getCollaborationUrl` 同風格的 helper:
+  ```ts
+  export function getSocketPath(): string {
+    return getPublicPathPrefix() + "/socket.io";
+  }
+  ```
+- `user-provider.tsx` 把 `path` 傳給 `io()`:
+  ```ts
+  const newSocket = io(SOCKET_URL, {
+    path: getSocketPath(),
+    transports: ["websocket"],
+    withCredentials: true,
+  });
+  ```
+
+前綴為空時 `getSocketPath()` 回傳 `/socket.io`,等同 socket.io 預設,對根路徑部署完全向後相容。
+改完需**重新 build client**(此 fork 的 client 打包後由 server 靜態託管)。
+
+### 驗證
+
+DevTools → Network → WS 應看到 `/wiki/socket.io/?EIO=4&transport=websocket` 回 `101 Switching Protocols`;
+console 不再有 reconnect loop。功能面:另一瀏覽器新增/移動/刪除頁面時,本端 sidebar tree 即時更新、通知即時到達。
+
 ## 仍需確認(多半沒問題)
 
 以下這兩處會組出 `/api/files/...` 的 URL 字串,但通常在渲染時會再經過 `getFileUrl()`
@@ -107,6 +160,8 @@ host 改用原生登入或導回 canonical host。
 
 ```bash
 rg -n 'fetch\(["'"']/api|window\.location\.(href|replace).*APP_ROUTE' apps/client/src
+# WebSocket：任何 io()/new WebSocket()/HocuspocusProvider 的路徑都要經前綴 helper
+rg -n 'io\(|new WebSocket\(|HocuspocusProvider' apps/client/src
 ```
 
 判斷原則：
@@ -115,6 +170,7 @@ rg -n 'fetch\(["'"']/api|window\.location\.(href|replace).*APP_ROUTE' apps/clien
 - `window.location` + 站內路徑：應使用 `withPublicPath()`。
 - React Router `navigate()` / `<Link to>`：維持裸 router path，由 basename 自動處理。
 - 外部 checkout/IdP URL：不應套 public path。
+- WebSocket（`io()` 的 `path`、collab 的 URL）：必須經 `getSocketPath()` / `getCollaborationUrl()`，不可用裸 `/socket.io`、`/collab`。
 
 驗證矩陣：
 
