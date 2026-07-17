@@ -64,6 +64,12 @@ merge 時若 upstream 在這些點新增/改寫程式,務必把新程式也套�
 | `apps/client/src/features/user/user-provider.tsx` | `io(SOCKET_URL, { path: getSocketPath(), ... })`(2026-07-16 加 `path`) | **必查**:upstream 若重寫 socket 初始化,務必補回 `path: getSocketPath()`,否則 socket.io 打裸 `/socket.io/` 在 `/wiki` 部署會全數失敗 |
 | `apps/client/src/features/editor/hooks/use-collaboration-url.ts` → `getCollaborationUrl()` | collab URL 走 `前綴 + /collab` | 保留;upstream 改 collab provider 時確認仍走此 helper |
 
+### 前端 — 編輯器媒體 URL(image/video/audio/drawio/excalidraw)
+
+| 檔案 | 改動 | merge 策略 |
+|---|---|---|
+| `packages/editor-ext/src/lib/media-utils.ts` → `normalizeFileUrl()` | 讓媒體節點的 `src` 帶上 `/wiki` 前綴(2026-07-17 新增)。upstream 版只把 `/files/` 改成 `/api/files/`、不帶前綴,導致 `<img src="/api/files/...">` 打裸路徑 → 外層 nginx SPA fallback 回 text/html → 破圖 | **必查**:此檔在 editor-ext 套件(非 apps/client),自成一份前綴讀取(`window.CONFIG.DOCMOST_PUBLIC_PATH_PREFIX`)。upstream 若重寫 `normalizeFileUrl` 或改媒體 render,務必補回前綴邏輯,否則所有內嵌媒體在 `/wiki` 部署破圖。image-upload.ts 存的仍是裸 `/api/files/...`,靠此函式在 render 時補前綴 |
+
 ### 前端 — 繞過共用 axios client 的 `fetch()`(EE 功能)
 
 這些用原生 `fetch()`、不經 axios,所以各自要 `withPublicPath()`:

@@ -144,6 +144,27 @@ socket.io-client 在沒有 `path` 時預設打「當前 origin + `/socket.io/`�
 DevTools → Network → WS 應看到 `/wiki/socket.io/?EIO=4&transport=websocket` 回 `101 Switching Protocols`;
 console 不再有 reconnect loop。功能面:另一瀏覽器新增/移動/刪除頁面時,本端 sidebar tree 即時更新、通知即時到達。
 
+## 編輯器媒體 URL 未套前綴 — 已完成(2026-07-17)
+
+### 症狀
+
+上傳圖片(或既有內嵌圖片/影片)在 `/wiki` 部署下不顯示。DevTools 看到 `<img>` 打的是
+**裸 `/api/files/<id>/<name>`(無 `/wiki`)**,回應 `200` 但 `Content-Type: text/html`、無 `Via: Caddy`
+——那是外層 nginx 的 SPA fallback HTML,不是圖片位元組,故破圖。上傳本身(`POST /wiki/api/files/upload`)是成功的。
+
+### 根因
+
+`packages/editor-ext/src/lib/media-utils.ts` 的 `normalizeFileUrl()` 只把 `/files/` 改寫成 `/api/files/`,
+**不帶前綴**;而 `image-upload.ts` 存的 src 就是裸 `/api/files/${id}/${name}`。編輯器節點(image/video/
+audio/drawio/excalidraw)都用 `normalizeFileUrl` 設 `el.src`,於是全部打裸 `/api/files/...` → origin 根 → nginx SPA fallback。
+(這與 socket.io 打裸 `/socket.io/` 同類。)apps/client 的 `getFileUrl()` 有帶前綴,但編輯器 render 路徑走的是 editor-ext 的 `normalizeFileUrl`。
+
+### 修正
+
+`normalizeFileUrl` 改為讀 `window.CONFIG.DOCMOST_PUBLIC_PATH_PREFIX` 補前綴(與 `config.ts` 一致):
+`/files/x` 與 `/api/files/x` → `/wiki/api/files/x`;`http/blob/data:` 與已帶前綴者原樣返回;前綴為空時退回原行為。
+editor-ext 自成一份前綴讀取(套件獨立於 apps/client)。改後需重 build client(含 editor-ext)。
+
 ## 仍需確認(多半沒問題)
 
 以下這兩處會組出 `/api/files/...` 的 URL 字串,但通常在渲染時會再經過 `getFileUrl()`
