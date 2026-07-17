@@ -354,3 +354,27 @@ NETWORK_ORIGIN_PERMISSION_BLOCKED
 - `DOCMOST_INTERNAL_CIDRS` 與 `DOCMOST_OFFICE_CIDRS` 的實際 CIDR 清單(業務提供)。
 - 雙入口的實體形式(不同 domain 或不同 bind IP/port)與 Caddy 部署位置(`wuji-adapter/deploy/Caddyfile` 或獨立 Caddy)。
 - Chat attachment 納入限制(v1 已納入，維持)。
+
+## 11. 圖片瀏覽改為全網段放行(2026-07-16 修訂 G3)
+
+### 背景
+
+原 G3 設計為「圖片嵌入顯示放行、下載阻擋」,靠 `isImageEmbedRequest()` 判斷
+`mime_type` 為 `image/*` 且請求帶 `Sec-Fetch-Dest: image` 才略過 network-origin 檢查。
+實務上部署在外層 nginx 之後時,`Sec-Fetch-*` 標頭常被外層濾掉,導致辦公網(office zone)
+瀏覽 MrDoc 遷移圖片(`origin_network_scope='mrdoc'`)時,嵌入顯示也被判 403(破圖)。
+
+### 修訂
+
+新增 env 開關 `DOCMOST_IMAGE_VIEW_IGNORE_NETWORK_ORIGIN`(**預設 `true`**):
+為 true 時,`isImageEmbedRequest()` 對「任何 `image/*` 附件」都回 true,亦即
+**圖片一律不受 zone 規則限制,內網與辦公網都能瀏覽**,不再依賴 `Sec-Fetch-Dest`。
+非圖片附件(pdf/office/zip…)維持原 zone 阻擋。設為 `false` 可還原成只放行
+`Sec-Fetch-Dest: image` 的嵌入請求。
+
+程式變更:
+- `apps/server/src/integrations/environment/environment.service.ts` — 新增 `getImageViewIgnoreNetworkOrigin()`。
+- `apps/server/src/core/attachment/attachment.controller.ts` — `isImageEmbedRequest()` 依此開關短路回 true。
+
+安全說明:原設計註解已載明此豁免「非安全邊界——可顯示即可複製」,故放寬圖片顯示範圍
+不改變資安模型;真正需要阻擋的敏感檔案應為非圖片附件,仍受 zone 規則保護。
