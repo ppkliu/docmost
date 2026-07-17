@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 import { socketAtom } from "@/features/websocket/atoms/socket-atom.ts";
 import { io } from "socket.io-client";
 import { SOCKET_URL } from "@/features/websocket/types";
+import { getSocketPath } from "@/lib/config.ts";
 import { useQuerySubscription } from "@/features/websocket/use-query-subscription.ts";
 import { useTreeSocket } from "@/features/websocket/use-tree-socket.ts";
 import { useNotificationSocket } from "@/features/notification/hooks/use-notification-socket.ts";
@@ -30,6 +31,7 @@ export function UserProvider({ children }: React.PropsWithChildren) {
     }
 
     const newSocket = io(SOCKET_URL, {
+      path: getSocketPath(),
       transports: ["websocket"],
       withCredentials: true,
     });

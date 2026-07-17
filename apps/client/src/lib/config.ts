@@ -61,6 +61,10 @@ export function getCollaborationUrl(): string {
   return collabUrl.toString();
 }
 
+export function getSocketPath(): string {
+  return getPublicPathPrefix() + "/socket.io";
+}
+
 export function getSubdomainHost(): string {
   return getConfigValue("SUBDOMAIN_HOST");
 }
