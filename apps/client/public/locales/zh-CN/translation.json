@@ -1,8 +1,8 @@
 {
-  "This download is blocked on the office network because the page, a subpage, or an attachment was created from the internal network.": "此下载在办公网络中被阻止，因为该页面、子页面或附件是在内部网络中创建的。",
-  "This export is blocked on the office network because the page, a subpage, or an attachment was created from the internal network.": "此导出在办公网络中被阻止，因为该页面、子页面或附件是在内部网络中创建的。",
-  "This print is blocked on the office network because the page, a subpage, or an attachment was created from the internal network.": "此打印在办公网络中被阻止，因为该页面、子页面或附件是在内部网络中创建的。",
-  "This copy is blocked on the office network because the page, a subpage, or an attachment was created from the internal network.": "此复制在办公网络中被阻止，因为该页面、子页面或附件是在内部网络中创建的。",
+  "This download is blocked on the office network because the page, a subpage, or an attachment was created from the internal network.": "该附件由内网上传，请连接内网后下载。",
+  "This export is blocked on the office network because the page, a subpage, or an attachment was created from the internal network.": "该页面包含在内网创建的内容，请连接内网后导出。",
+  "This print is blocked on the office network because the page, a subpage, or an attachment was created from the internal network.": "该页面包含在内网创建的内容，请连接内网后打印。",
+  "This copy is blocked on the office network because the page, a subpage, or an attachment was created from the internal network.": "该页面包含在内网创建的内容，请连接内网后复制。",
   "Account": "账户",
   "Active": "活跃",
   "Add": "添加",
