@@ -4,6 +4,7 @@ import { join } from 'path';
 import * as fs from 'node:fs';
 import fastifyStatic from '@fastify/static';
 import { EnvironmentService } from '../environment/environment.service';
+import { htmlEscape } from '../../common/helpers/html-escaper';
 
 function normalizePublicPathPrefix(value?: string): string {
   const raw = (value || '').trim();
@@ -17,6 +18,23 @@ function prefixIndexAssetUrls(html: string, publicPathPrefix: string): string {
     /\b(src|href)="\/((?:assets|icons)\/[^"]+|manifest\.json)"/g,
     (_match, attr, path) => `${attr}="${publicPathPrefix}/${path}"`,
   );
+}
+
+export function applyAppNameToIndexHtml(
+  html: string,
+  appName?: string,
+): string {
+  const normalizedAppName = appName?.trim();
+  if (!normalizedAppName) return html;
+
+  const escapedAppName = htmlEscape(normalizedAppName);
+
+  return html
+    .replace(/<title>[\s\S]*?<\/title>/i, `<title>${escapedAppName}</title>`)
+    .replace(
+      /(<meta\s+name="apple-mobile-web-app-title"\s+content=")[^"]*("\s*\/?>)/i,
+      `$1${escapedAppName}$2`,
+    );
 }
 
 export function readFreshIndexTemplate(
@@ -102,7 +120,10 @@ export class StaticModule implements OnModuleInit {
         windowVar,
       );
       const transformedHtml = prefixIndexAssetUrls(
-        html.replace(windowVar, windowScriptContent),
+        applyAppNameToIndexHtml(
+          html.replace(windowVar, windowScriptContent),
+          process.env.APP_NAME,
+        ),
         publicPathPrefix,
       );
 

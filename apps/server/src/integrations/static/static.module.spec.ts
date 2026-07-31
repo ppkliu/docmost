@@ -1,7 +1,37 @@
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import { join } from 'node:path';
-import { readFreshIndexTemplate } from './static.module';
+import {
+  applyAppNameToIndexHtml,
+  readFreshIndexTemplate,
+} from './static.module';
+
+describe('applyAppNameToIndexHtml', () => {
+  const html = [
+    '<title>stale brand</title>',
+    '<meta name="apple-mobile-web-app-title" content="stale brand" />',
+  ].join('\n');
+
+  it('applies the runtime app name before the client loads', () => {
+    const transformed = applyAppNameToIndexHtml(html, 'WIKI');
+
+    expect(transformed).toContain('<title>WIKI</title>');
+    expect(transformed).toContain(
+      '<meta name="apple-mobile-web-app-title" content="WIKI" />',
+    );
+    expect(transformed).not.toContain('stale brand');
+  });
+
+  it('escapes an app name before inserting it into HTML', () => {
+    const transformed = applyAppNameToIndexHtml(html, 'R&D <Wiki>');
+
+    expect(transformed).toContain('<title>R&amp;D &lt;Wiki&gt;</title>');
+  });
+
+  it('keeps the build-time fallback when APP_NAME is blank', () => {
+    expect(applyAppNameToIndexHtml(html, '   ')).toBe(html);
+  });
+});
 
 describe('readFreshIndexTemplate', () => {
   let directory: string;
