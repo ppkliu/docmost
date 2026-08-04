@@ -79,7 +79,7 @@ missing `@tanstack/eslint-plugin-query` module in node_modules — unrelated to 
 ## 4. Manual / human testing (needs a running stack)
 
 > **Live-verified (2026-06-12)** against a fresh dev stack (`docker-compose.dev.yml`, port 3011,
-> clean DB) and a real vLLM endpoint (`http://10.130.10.2:30015/v1`, `qwen3.6-27b-fp8`):
+> clean DB) and a real vLLM endpoint (`http://hostip:30015/v1`, `qwen3.6-27b-fp8`):
 > - API: `/ai/settings/models` listed the served model; base URL without `/v1` returned
 >   `normalizedBaseUrl` suggestion; `/ai/settings/test` → completion success (419ms real
 >   generation), wrong-port draft → clean "Timed out after 10s" failure row; saved `apiKey`

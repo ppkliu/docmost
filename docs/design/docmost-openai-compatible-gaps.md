@@ -43,7 +43,7 @@
 ## 4. 後續
 
 - ✅ Live 驗證（2026-06-12）：fresh dev stack（port 3011）對真實 vLLM 端點
-  （`10.130.10.2:30015/v1`，qwen3.6-27b-fp8）完成 API 11 項檢查 + Playwright UI 全流程
+  （`hostip:30015/v1`，qwen3.6-27b-fp8）完成 API 11 項檢查 + Playwright UI 全流程
   （Fetch models → `/v1` 建議套用 → Test connection 綠勾 419ms → Save）。
   紀錄見 [manuals/E9 §4](../manuals/E9-ai-provider-settings.md)。
   未覆蓋：非 admin 403（需第二帳號；同 `assertAdmin` 路徑已有單元覆蓋）、embedding 實測

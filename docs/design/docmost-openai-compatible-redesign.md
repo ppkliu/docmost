@@ -128,7 +128,7 @@ controller (save/test/models) and the two new service files change.
 ```text
 ┌─ AI provider ────────────────────────────── [● Connected] ─┐
 │ Provider          [ OpenAI-compatible ▾ ]                  │
-│ Base URL          [ http://10.130.10.2:8000/v1     ]       │
+│ Base URL          [ http://hostip:8000/v1     ]       │
 │                   ⓘ usually ends with /v1                  │
 │ API key           [ ••••  (saved — leave blank to keep) ]  │
 │                                            [ Clear key ]   │
