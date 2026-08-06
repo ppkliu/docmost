@@ -2,14 +2,44 @@
 
 把 Docmost 正式環境**整包**(app + db + valkey 三個 image + 部署檔)自動打包成單一 `.tar.gz`,搬到另一台機器即可**離線部署**,目標機器不需連網、不需原始碼。
 
+## 流程總覽
+
 ```
-建置機 (有原始碼)                          目標機 (離線)
-  ./pack-prod.sh                              tar -xzf ...
-   ├ docker build app image          ──┐      ├ ./load.sh   (docker load + 備 .env)
-   ├ pull pgvector / valkey            │ 搬   ├ 編輯 .env
-   ├ docker save 三個 image -> tar     │ 運   └ ./start.sh prod
-   └ 打包部署檔 -> dist/*.tar.gz  ──────┘
+══════════════════ 建置機 (docmost/ 原始碼) ══════════════════
+ 改完代碼
+   │
+   ├─ 首次部署 / base 升版 ── ./pack-prod.sh
+   │     → build app + pull db/valkey + save 3 image + 部署檔
+   │     → dist/docmost-prod-<ver>.tar.gz                [完整包]
+   │
+   └─ 只更新代碼 ──────────── APP_ONLY=1 ./pack-prod.sh
+         → 只 build + save app image
+         → dist/docmost-prod-update-<ver>.tar.gz          [更新包]
+                              │
+                              │   scp / USB 搬運(離線)
+                              ▼
+═════════════ 目標機 (離線,Docker + Compose v2) ═════════════
+ ./load-select.sh <dir>   掃描 .tar.gz → 選單 → 確認(y/N) → 辨識型態
+   │
+   ├─ 完整包 ─▶ 解開 → load.sh(docker load + 備 .env)
+   │              → 編輯 .env → ./start.sh prod
+   │
+   ├─ 更新包 ─▶ 解開 → docker load app image
+   │              → ./update.sh <部署目錄>(換 image + up -d,只重建 app)
+   │
+   └─ 裸 image 封存 ─▶ docker load
+                              │
+                              ▼   prod 自動跑 DB migration
+                   http://<host>:3010      (./stop.sh prod 可停止)
 ```
+
+| 腳本 | 在哪台 | 做什麼 |
+|---|---|---|
+| `pack-prod.sh` | 建置機 | 打包完整包 / 更新包(`APP_ONLY=1`) |
+| `load-select.sh` | 目標機 | 掃描 / 選擇 / 確認 / 載入 tar.gz |
+| `load.sh`(包內生成) | 目標機 | 完整包:docker load + 備 `.env` |
+| `update.sh`(包內生成) | 目標機 | 更新包:換 app image + `up -d`(資料保留) |
+| `start.sh` / `stop.sh` | 目標機 | 啟動(prod 自動 migrate)/ 停止 |
 
 ---
 
