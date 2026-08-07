@@ -10,6 +10,12 @@ import { decryptSecret } from './secret.util';
 export interface ResolvedAiConfig {
   driver: string;
   baseUrl: string;
+  /**
+   * Base URL for embeddings. Defaults to `baseUrl`; set it only when the
+   * embedding model is served by a different endpoint than the chat model
+   * (common in self-hosted setups: vLLM for chat, TEI for embeddings).
+   */
+  embeddingBaseUrl: string;
   apiKey: string;
   completionModel: string;
   embeddingModel: string;
@@ -20,6 +26,7 @@ export interface ResolvedAiConfig {
 export interface AiProviderOverride {
   driver?: string;
   baseUrl?: string;
+  embeddingBaseUrl?: string;
   apiKey?: string;
   completionModel?: string;
   embeddingModel?: string;
@@ -75,9 +82,17 @@ export class AiProviderService {
       workspaceApiKey = decrypted ?? '';
     }
 
+    const baseUrl = p.baseUrl || envBaseUrl || '';
+
     return {
       driver,
-      baseUrl: p.baseUrl || envBaseUrl || '',
+      baseUrl,
+      // Falls back to baseUrl so existing single-endpoint deployments keep
+      // working untouched; only split setups need to set this.
+      embeddingBaseUrl:
+        p.embeddingBaseUrl ||
+        this.environmentService.getAiEmbeddingApiUrl() ||
+        baseUrl,
       apiKey: workspaceApiKey || envApiKey || '',
       completionModel:
         p.completionModel || this.environmentService.getAiCompletionModel() || '',
@@ -113,11 +128,16 @@ export class AiProviderService {
       );
     }
 
+    // ★ Embeddings resolve against embeddingBaseUrl, not baseUrl. The two are
+    //   the same value unless the deployment splits chat and embeddings across
+    //   endpoints — see ResolvedAiConfig.embeddingBaseUrl.
+    const embeddingBaseUrl = cfg.embeddingBaseUrl || cfg.baseUrl;
+
     switch (cfg.driver) {
       case 'openai': {
         const openai = createOpenAI({
           apiKey: cfg.apiKey,
-          baseURL: cfg.baseUrl || undefined,
+          baseURL: embeddingBaseUrl || undefined,
         });
         return openai.textEmbeddingModel(cfg.embeddingModel);
       }
@@ -125,7 +145,7 @@ export class AiProviderService {
         const provider = createOpenAICompatible({
           name: 'docmost-openai-compatible',
           apiKey: cfg.apiKey,
-          baseURL: cfg.baseUrl,
+          baseURL: embeddingBaseUrl,
         });
         return provider.textEmbeddingModel(cfg.embeddingModel);
       }
@@ -136,7 +156,7 @@ export class AiProviderService {
       case 'ollama': {
         // eslint-disable-next-line @typescript-eslint/no-require-imports
         const { createOllama } = require('ai-sdk-ollama');
-        const ollama = createOllama({ baseURL: cfg.baseUrl });
+        const ollama = createOllama({ baseURL: embeddingBaseUrl });
         return ollama.textEmbeddingModel(cfg.embeddingModel);
       }
       default:

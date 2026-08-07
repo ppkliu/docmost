@@ -18,6 +18,13 @@ export class AiSettingsDto {
   @MaxLength(500)
   baseUrl?: string;
 
+  // Optional: only when embeddings live behind a different endpoint than
+  // completions. Blank = same as baseUrl.
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  embeddingBaseUrl?: string;
+
   // Blank/omitted = keep the existing stored key.
   @IsOptional()
   @IsString()

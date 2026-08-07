@@ -62,6 +62,7 @@ export default function AiProviderSettings() {
 
   const [driver, setDriver] = useState<string | null>(null);
   const [baseUrl, setBaseUrl] = useState("");
+  const [embeddingBaseUrl, setEmbeddingBaseUrl] = useState("");
   const [apiKey, setApiKey] = useState("");
   const [clearKey, setClearKey] = useState(false);
   const [completionModel, setCompletionModel] = useState("");
@@ -78,6 +79,13 @@ export default function AiProviderSettings() {
   const seed = (p?: AiProviderConfig) => {
     setDriver(p?.driver || null);
     setBaseUrl(p?.baseUrl || "");
+    // Server echoes the resolved value; showing it when it equals baseUrl would
+    // make an unset field look configured, so only seed a genuine override.
+    setEmbeddingBaseUrl(
+      p?.embeddingBaseUrl && p.embeddingBaseUrl !== p.baseUrl
+        ? p.embeddingBaseUrl
+        : "",
+    );
     setCompletionModel(p?.completionModel || "");
     setEmbeddingModel(p?.embeddingModel || "");
     setEmbeddingDimension(p?.embeddingDimension || "");
@@ -96,6 +104,7 @@ export default function AiProviderSettings() {
   const draft = (): AiSettingsDto => ({
     driver: driver || undefined,
     baseUrl: baseUrl.trim(),
+    embeddingBaseUrl: embeddingBaseUrl.trim(),
     // only send a key when the admin typed one; blank keeps the stored key
     apiKey: apiKey ? apiKey : undefined,
     clearApiKey: clearKey || undefined,
@@ -290,6 +299,17 @@ export default function AiProviderSettings() {
       </Group>
 
       <Divider my="xs" label={t("Embeddings (optional, for AI Search & Chat tools)")} />
+
+      <TextInput
+        label={t("Embedding base URL")}
+        placeholder={t("Same as the base URL above")}
+        description={t(
+          "Only needed when the embedding model is served by a different endpoint than the completion model.",
+        )}
+        value={embeddingBaseUrl}
+        onChange={(e) => setEmbeddingBaseUrl(e.currentTarget.value)}
+        disabled={!hasAccess || driver === "gemini"}
+      />
 
       <Group grow>
         <Autocomplete

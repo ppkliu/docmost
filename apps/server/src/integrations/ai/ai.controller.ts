@@ -278,6 +278,7 @@ export class AiController {
     for (const key of [
       'driver',
       'baseUrl',
+      'embeddingBaseUrl',
       'completionModel',
       'embeddingModel',
       'embeddingDimension',
@@ -289,10 +290,12 @@ export class AiController {
         merged[key] = dto[key];
       }
     }
-    if (typeof merged.baseUrl === 'string') {
-      merged.baseUrl = this.aiConnectionService.normalizeBaseUrl(
-        merged.baseUrl,
-      );
+    for (const key of ['baseUrl', 'embeddingBaseUrl'] as const) {
+      if (typeof merged[key] === 'string') {
+        merged[key] = this.aiConnectionService.normalizeBaseUrl(
+          merged[key] as string,
+        );
+      }
     }
     if (dto.clearApiKey) {
       delete merged.apiKey;
@@ -323,6 +326,9 @@ export class AiController {
     return {
       driver: cfg.driver,
       baseUrl: cfg.baseUrl,
+      // Echoed back resolved (falls back to baseUrl), so the UI can show what
+      // embeddings will actually hit rather than an empty field.
+      embeddingBaseUrl: cfg.embeddingBaseUrl,
       completionModel: cfg.completionModel,
       embeddingModel: cfg.embeddingModel,
       embeddingDimension: cfg.embeddingDimension,

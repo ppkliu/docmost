@@ -30,6 +30,9 @@ export interface AiContentResponse {
 export interface AiProviderConfig {
   driver: string;
   baseUrl: string;
+  // Resolved server-side: falls back to baseUrl when embeddings share the
+  // completion endpoint.
+  embeddingBaseUrl?: string;
   completionModel: string;
   embeddingModel: string;
   embeddingDimension: number;
@@ -46,6 +49,7 @@ export interface AiConfigResponse {
 export interface AiSettingsDto {
   driver?: string;
   baseUrl?: string;
+  embeddingBaseUrl?: string;
   apiKey?: string;
   completionModel?: string;
   embeddingModel?: string;
