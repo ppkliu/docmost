@@ -151,6 +151,13 @@ export class EnvironmentVariables {
   @IsUrl({ protocols: ['http', 'https'], require_tld: false })
   OPENAI_API_URL: string;
 
+  // Optional: only needed when the embedding model lives behind a different
+  // endpoint than the completion model. Unset means "same as OPENAI_API_URL".
+  @IsOptional()
+  @ValidateIf((obj) => obj.AI_EMBEDDING_API_URL)
+  @IsUrl({ protocols: ['http', 'https'], require_tld: false })
+  AI_EMBEDDING_API_URL: string;
+
   @ValidateIf((obj) => obj.AI_DRIVER && obj.AI_DRIVER === 'gemini')
   @IsString()
   @IsNotEmpty()

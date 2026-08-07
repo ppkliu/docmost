@@ -332,6 +332,17 @@ export class EnvironmentService {
     return this.configService.get<string>('OPENAI_API_URL');
   }
 
+  /**
+   * Base URL for the embedding endpoint, when it differs from the completion
+   * endpoint. Self-hosted setups routinely split the two: a chat model served
+   * by vLLM on one port, an embedding model served by TEI on another. Falls
+   * back to the completion base URL when unset, so single-endpoint setups
+   * need no configuration at all.
+   */
+  getAiEmbeddingApiUrl(): string {
+    return this.configService.get<string>('AI_EMBEDDING_API_URL');
+  }
+
   getGeminiApiKey(): string {
     return this.configService.get<string>('GEMINI_API_KEY');
   }
