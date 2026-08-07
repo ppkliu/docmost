@@ -13,6 +13,8 @@ function makeCfg(overrides: Partial<ResolvedAiConfig> = {}): ResolvedAiConfig {
   return {
     driver: 'openai-compatible',
     baseUrl: 'http://llm.local/v1',
+    // same host unless a test says otherwise — mirrors resolveConfig's fallback
+    embeddingBaseUrl: 'http://llm.local/v1',
     apiKey: 'sk-test',
     completionModel: 'qwen3-32b',
     embeddingModel: 'bge-m3',

@@ -12,6 +12,7 @@ function makeEnv(overrides: Record<string, any> = {}) {
     getAiCompletionModel: () => 'env-completion',
     getAiEmbeddingModel: () => 'env-embedding',
     getAiEmbeddingDimension: () => 1536,
+    getAiEmbeddingApiUrl: () => undefined,
     ...overrides,
   };
   return env as any;
@@ -23,6 +24,8 @@ describe('AiProviderService.resolveConfig', () => {
     expect(svc.resolveConfig(null)).toEqual({
       driver: 'openai',
       baseUrl: 'https://env.openai/v1',
+      // unset -> mirrors baseUrl, so single-endpoint setups need no config
+      embeddingBaseUrl: 'https://env.openai/v1',
       apiKey: 'env-openai-key',
       completionModel: 'env-completion',
       embeddingModel: 'env-embedding',
@@ -121,5 +124,44 @@ describe('AiProviderService.resolveConfig', () => {
       );
       expect(noDim.isEmbeddingConfigured(noDim.resolveConfig(null))).toBe(false);
     });
+  });
+});
+
+// Self-hosted deployments routinely split the two endpoints: a chat model on
+// vLLM, an embedding model on TEI. Before this existed, one of the two always
+// hit the wrong host and 404'd.
+describe('AiProviderService embedding base URL', () => {
+  it('defaults to the completion base URL', () => {
+    const svc = new AiProviderService(makeEnv());
+    expect(svc.resolveConfig(null).embeddingBaseUrl).toBe(
+      'https://env.openai/v1',
+    );
+  });
+
+  it('uses AI_EMBEDDING_API_URL when set', () => {
+    const svc = new AiProviderService(
+      makeEnv({ getAiEmbeddingApiUrl: () => 'http://tei:28080/v1' }),
+    );
+    const cfg = svc.resolveConfig(null);
+    expect(cfg.embeddingBaseUrl).toBe('http://tei:28080/v1');
+    expect(cfg.baseUrl).toBe('https://env.openai/v1');
+  });
+
+  it('lets the workspace override win over the env value', () => {
+    const svc = new AiProviderService(
+      makeEnv({ getAiEmbeddingApiUrl: () => 'http://tei:28080/v1' }),
+    );
+    const cfg = svc.resolveConfig({
+      ai: { provider: { embeddingBaseUrl: 'http://ws-tei:9000/v1' } },
+    } as any);
+    expect(cfg.embeddingBaseUrl).toBe('http://ws-tei:9000/v1');
+  });
+
+  it('follows a workspace baseUrl override when no embedding URL is set', () => {
+    const svc = new AiProviderService(makeEnv());
+    const cfg = svc.resolveConfig({
+      ai: { provider: { baseUrl: 'https://ws.example/v1' } },
+    } as any);
+    expect(cfg.embeddingBaseUrl).toBe('https://ws.example/v1');
   });
 });
