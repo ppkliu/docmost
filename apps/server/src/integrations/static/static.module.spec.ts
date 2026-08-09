@@ -3,6 +3,8 @@ import * as os from 'node:os';
 import { join } from 'node:path';
 import {
   applyAppNameToIndexHtml,
+  applyKbWidgetToIndexHtml,
+  KB_WIDGET_MARKER,
   readFreshIndexTemplate,
 } from './static.module';
 
@@ -73,5 +75,34 @@ describe('readFreshIndexTemplate', () => {
     expect(
       readFreshIndexTemplate(indexFile, templateFile, '<!--window-config-->'),
     ).toBe('<!--window-config--><main>app</main>');
+  });
+});
+
+describe('applyKbWidgetToIndexHtml', () => {
+  const html = `<body><div id="root"></div>${KB_WIDGET_MARKER}</body>`;
+
+  it('injects the widget script when a URL is configured', () => {
+    const out = applyKbWidgetToIndexHtml(html, '/kb-widget.js');
+
+    expect(out).toContain('<script src="/kb-widget.js" defer></script>');
+    expect(out).not.toContain(KB_WIDGET_MARKER);
+  });
+
+  // Unset must be byte-for-byte the pre-feature page: deployments without a
+  // knowledge base should not be able to tell this feature was ever added.
+  it('drops the placeholder when no URL is configured', () => {
+    expect(applyKbWidgetToIndexHtml(html, undefined)).toBe(
+      '<body><div id="root"></div></body>',
+    );
+    expect(applyKbWidgetToIndexHtml(html, '   ')).toBe(
+      '<body><div id="root"></div></body>',
+    );
+  });
+
+  it('escapes the URL before it lands in an attribute', () => {
+    const out = applyKbWidgetToIndexHtml(html, '/x.js" onload="alert(1)');
+
+    expect(out).not.toContain('onload="alert(1)"');
+    expect(out).toContain('&quot;');
   });
 });
