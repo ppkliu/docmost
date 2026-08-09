@@ -37,6 +37,37 @@ export function applyAppNameToIndexHtml(
     );
 }
 
+/**
+ * The placeholder the KB widget script is injected at. Lives in the client's
+ * index.html next to <!--window-config-->, and is substituted the same way.
+ */
+export const KB_WIDGET_MARKER = '<!--kb-widget-->';
+
+/**
+ * Injects the knowledge-base widget script tag, or removes the placeholder when
+ * no widget is configured.
+ *
+ * ★ Why here rather than in a reverse proxy: rewriting `</body>` at the proxy
+ *   works until Docmost's HTML changes shape, and then it **fails silently** —
+ *   the badge just stops appearing and nobody files a bug. Substituting a
+ *   placeholder we put there ourselves cannot drift, and it needs no custom
+ *   proxy build (the `replace-response` Caddy plugin is not in the official
+ *   image).
+ *
+ * ★ Unset KB_WIDGET_URL means "no widget": the marker is dropped and the page
+ *   is byte-for-byte what it was before this feature existed.
+ */
+export function applyKbWidgetToIndexHtml(html: string, widgetUrl?: string): string {
+  const url = widgetUrl?.trim();
+  if (!url) return html.replace(KB_WIDGET_MARKER, '');
+  // The URL comes from server env, not user input, but it lands in an HTML
+  // attribute — escape it anyway rather than relying on that staying true.
+  return html.replace(
+    KB_WIDGET_MARKER,
+    `<script src="${htmlEscape(url)}" defer></script>`,
+  );
+}
+
 export function readFreshIndexTemplate(
   indexFilePath: string,
   indexTemplateFilePath: string,
@@ -120,9 +151,12 @@ export class StaticModule implements OnModuleInit {
         windowVar,
       );
       const transformedHtml = prefixIndexAssetUrls(
-        applyAppNameToIndexHtml(
-          html.replace(windowVar, windowScriptContent),
-          process.env.APP_NAME,
+        applyKbWidgetToIndexHtml(
+          applyAppNameToIndexHtml(
+            html.replace(windowVar, windowScriptContent),
+            process.env.APP_NAME,
+          ),
+          this.environmentService.getKbWidgetUrl(),
         ),
         publicPathPrefix,
       );

@@ -339,6 +339,14 @@ export class EnvironmentService {
    * back to the completion base URL when unset, so single-endpoint setups
    * need no configuration at all.
    */
+  /**
+   * URL of the knowledge-base widget script injected into index.html.
+   * Unset means no widget — the placeholder is simply dropped.
+   */
+  getKbWidgetUrl(): string {
+    return this.configService.get<string>('KB_WIDGET_URL');
+  }
+
   getAiEmbeddingApiUrl(): string {
     return this.configService.get<string>('AI_EMBEDDING_API_URL');
   }
