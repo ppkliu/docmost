@@ -46,6 +46,37 @@ describe('EnvironmentService', () => {
     });
   });
 
+  describe('getFileUploadSizeLimit', () => {
+    /**
+     * The wiki cap and the knowledge-base cap must be able to line up. A file
+     * that uploads to the wiki but never reaches the knowledge base is a silent
+     * gap: it looks fine in the UI and only the admin console shows why.
+     */
+    it('defaults to 200mb so large attachments are not rejected at the door', () => {
+      expect(service.getFileUploadSizeLimit()).toBe('200mb');
+    });
+
+    it('is configurable for deployments with less headroom', () => {
+      values.FILE_UPLOAD_SIZE_LIMIT = '50mb';
+
+      expect(service.getFileUploadSizeLimit()).toBe('50mb');
+    });
+
+    /**
+     * `FILE_UPLOAD_SIZE_LIMIT=` (present but empty) must not parse to a 0-byte
+     * limit — that would reject every upload with no obvious cause.
+     */
+    it('treats an empty value as unset', () => {
+      values.FILE_UPLOAD_SIZE_LIMIT = '';
+
+      expect(service.getFileUploadSizeLimit()).toBe('200mb');
+    });
+
+    it('keeps the import limit aligned with the upload limit', () => {
+      expect(service.getFileImportSizeLimit()).toBe('200mb');
+    });
+  });
+
   describe('getLoginNetworkZone', () => {
     it('keeps an adjustable parameterized hook for controlled callers', () => {
       expect(
