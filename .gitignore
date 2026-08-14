@@ -46,3 +46,4 @@ lerna-debug.log*
 
 #ignore backup folder
 bak/
+.worktrees/
