@@ -89,7 +89,15 @@ export class EnvironmentService {
   getFileUploadSizeLimit(): string {
     // `||` so an empty env value (FILE_UPLOAD_SIZE_LIMIT=) falls back to the
     // default instead of injecting "" (which parses to a 0-byte limit).
-    return this.configService.get<string>('FILE_UPLOAD_SIZE_LIMIT') || '50mb';
+    //
+    // Defaults to 200mb, matching FILE_IMPORT_SIZE_LIMIT below. A cap lower
+    // than the knowledge base's own attachment cap creates a silent gap: the
+    // file uploads, shows up in the wiki, and never reaches the knowledge base
+    // — with nothing in the UI to explain why. Keep the two aligned.
+    //
+    // Any reverse proxy in front must allow slightly more than this value:
+    // multipart framing adds overhead, so a 200mb file is a >200mb request.
+    return this.configService.get<string>('FILE_UPLOAD_SIZE_LIMIT') || '200mb';
   }
 
   getFileImportSizeLimit(): string {
