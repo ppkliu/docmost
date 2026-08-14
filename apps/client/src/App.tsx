@@ -40,6 +40,7 @@ import FavoritesPage from "@/pages/favorites/favorites-page";
 import VerifyEmail from "@/ee/pages/verify-email.tsx";
 import LabelPage from "@/pages/label/label-page";
 import OrganizeStatusPage from "@/pages/organize/organize-status-page";
+import { RedirectNotice } from "@/components/common/redirect-notice";
 
 // Large, route-specific features stay out of the initial application chunk.
 const Page = lazy(() => import("@/pages/page/page"));
@@ -62,6 +63,7 @@ export default function App() {
 
   return (
     <>
+      <RedirectNotice />
       <Suspense fallback={null}>
         <Routes>
           <Route index element={<Navigate to="/home" />} />

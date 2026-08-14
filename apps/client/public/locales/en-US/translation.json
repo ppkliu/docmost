@@ -1089,5 +1089,16 @@
   "Added {{name}} to favorites": "Added {{name}} to favorites",
   "Removed {{name}} from favorites": "Removed {{name}} from favorites",
   "Page menu for {{name}}": "Page menu for {{name}}",
-  "Create subpage of {{name}}": "Create subpage of {{name}}"
+  "Create subpage of {{name}}": "Create subpage of {{name}}",
+  "redirectNotice.spaceForbidden": "You do not have permission to read this space. Contact an organization administrator for access.",
+  "redirectNotice.pageForbidden": "You do not have permission to read this page. Contact an organization administrator for access.",
+  "redirectNotice.spaceInvalid": "The space information is invalid, so the redirect could not be completed.",
+  "redirectNotice.spaceNotFound": "The target space does not exist or has been deleted.",
+  "redirectNotice.pageInvalid": "The page information is invalid, so the redirect could not be completed.",
+  "redirectNotice.pageNotFound": "The target page does not exist or has been deleted.",
+  "redirectNotice.pageSpaceMismatch": "The target page does not belong to the specified space.",
+  "redirectNotice.grantApplyFailed": "Space permissions could not be synchronized. Try again later or contact an administrator.",
+  "redirectNotice.ssoInvalid": "The login information is invalid or expired. Return to the original system and try again.",
+  "redirectNotice.ssoUnavailable": "The identity service is temporarily unavailable. Try again later.",
+  "redirectNotice.ssoFailed": "The login redirect failed. Try again later or contact an administrator."
 }

@@ -1088,5 +1088,16 @@
   "Added {{name}} to favorites": "已将 {{name}} 添加到收藏",
   "Removed {{name}} from favorites": "已将 {{name}} 从收藏中移除",
   "Page menu for {{name}}": "{{name}} 的页面菜单",
-  "Create subpage of {{name}}": "创建 {{name}} 的子页面"
+  "Create subpage of {{name}}": "创建 {{name}} 的子页面",
+  "redirectNotice.spaceForbidden": "您没有权限阅读此知识空间，请联系组织管理员授权。",
+  "redirectNotice.pageForbidden": "您没有权限阅读此文档，请联系组织管理员授权。",
+  "redirectNotice.spaceInvalid": "知识空间参数错误，无法完成跳转。",
+  "redirectNotice.spaceNotFound": "目标知识空间不存在或已被删除。",
+  "redirectNotice.pageInvalid": "文档参数错误，无法完成跳转。",
+  "redirectNotice.pageNotFound": "目标文档不存在或已被删除。",
+  "redirectNotice.pageSpaceMismatch": "目标文档不属于指定的知识空间。",
+  "redirectNotice.grantApplyFailed": "知识空间权限同步失败，请稍后重试或联系管理员。",
+  "redirectNotice.ssoInvalid": "登录信息无效或已过期，请返回原系统重新进入。",
+  "redirectNotice.ssoUnavailable": "身份验证服务暂时不可用，请稍后重试。",
+  "redirectNotice.ssoFailed": "登录跳转失败，请稍后重试或联系管理员。"
 }
