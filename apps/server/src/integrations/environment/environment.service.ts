@@ -113,6 +113,25 @@ export class EnvironmentService {
       .trim() !== 'false';
   }
 
+  /**
+   * Whether workspace MEMBERs may create their own spaces.
+   *
+   * Default OFF: creating a space also makes the creator that space's ADMIN
+   * (invite rights included), and — through kb-stack — registers a new
+   * `kb_dataset` row. Both are cost/permission decisions, so opening them is
+   * opt-in per deployment rather than a code default.
+   *
+   * Note this only grants `create`; it never widens MEMBER's read-only view of
+   * other spaces.
+   */
+  getSpaceMemberCreateEnabled(): boolean {
+    return (
+      this.configService.get<string>('SPACE_MEMBER_CREATE_ENABLED') ?? 'false'
+    )
+      .toLowerCase()
+      .trim() === 'true';
+  }
+
   getAwsS3AccessKeyId(): string {
     return this.configService.get<string>('AWS_S3_ACCESS_KEY_ID');
   }

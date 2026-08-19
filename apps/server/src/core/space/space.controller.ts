@@ -135,8 +135,12 @@ export class SpaceController {
     @AuthWorkspace() workspace: Workspace,
   ) {
     const ability = this.workspaceAbility.createForUser(user, workspace);
+    // `Create`, not `Manage`: owners/admins still pass (CASL's `manage` implies
+    // every action), while members pass only when the deployment enables
+    // SPACE_MEMBER_CREATE_ENABLED — without also handing them edit/delete on
+    // spaces they do not belong to.
     if (
-      ability.cannot(WorkspaceCaslAction.Manage, WorkspaceCaslSubject.Space)
+      ability.cannot(WorkspaceCaslAction.Create, WorkspaceCaslSubject.Space)
     ) {
       throw new ForbiddenException();
     }

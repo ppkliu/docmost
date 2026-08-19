@@ -141,6 +141,8 @@ export class StaticModule implements OnModuleInit {
         POSTHOG_KEY: this.environmentService.getPostHogKey(),
         EDITOR_TOOLBAR_DEFAULT:
           this.environmentService.getEditorToolbarDefault(),
+        SPACE_MEMBER_CREATE_ENABLED:
+          this.environmentService.getSpaceMemberCreateEnabled(),
       };
 
       const windowScriptContent = `<script>window.CONFIG=${JSON.stringify(configString)};</script>`;

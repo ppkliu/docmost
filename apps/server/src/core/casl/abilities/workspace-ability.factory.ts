@@ -11,9 +11,12 @@ import {
   WorkspaceCaslAction,
   WorkspaceCaslSubject,
 } from '../interfaces/workspace-ability.type';
+import { EnvironmentService } from '../../../integrations/environment/environment.service';
 
 @Injectable()
 export default class WorkspaceAbilityFactory {
+  constructor(private readonly environmentService: EnvironmentService) {}
+
   createForUser(user: User, workspace: Workspace) {
     const userRole = user.role;
 
@@ -23,7 +26,9 @@ export default class WorkspaceAbilityFactory {
       case UserRole.ADMIN:
         return buildWorkspaceAdminAbility();
       case UserRole.MEMBER:
-        return buildWorkspaceMemberAbility();
+        return buildWorkspaceMemberAbility(
+          this.environmentService.getSpaceMemberCreateEnabled(),
+        );
       default:
         throw new NotFoundException('Workspace permissions not found');
     }
@@ -62,13 +67,21 @@ function buildWorkspaceAdminAbility() {
   return build();
 }
 
-function buildWorkspaceMemberAbility() {
+function buildWorkspaceMemberAbility(canCreateSpace = false) {
   const { can, build } = new AbilityBuilder<MongoAbility<IWorkspaceAbility>>(
     createMongoAbility,
   );
   can(WorkspaceCaslAction.Read, WorkspaceCaslSubject.Settings);
   can(WorkspaceCaslAction.Read, WorkspaceCaslSubject.Member);
   can(WorkspaceCaslAction.Read, WorkspaceCaslSubject.Space);
+  // `Create` only — deliberately not `Manage`. `Manage` on Space would also
+  // grant editing and deleting *every* space in the workspace, which is what
+  // the admin roles above have. A member may bring a space into existence and
+  // is made its space-level ADMIN by SpaceService.createSpace; every other
+  // space stays read-only to them.
+  if (canCreateSpace) {
+    can(WorkspaceCaslAction.Create, WorkspaceCaslSubject.Space);
+  }
   can(WorkspaceCaslAction.Read, WorkspaceCaslSubject.Group);
   can(WorkspaceCaslAction.Manage, WorkspaceCaslSubject.Attachment);
   can(WorkspaceCaslAction.Create, WorkspaceCaslSubject.API);
