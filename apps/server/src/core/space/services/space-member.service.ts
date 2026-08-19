@@ -24,11 +24,24 @@ import {
   AUDIT_SERVICE,
   IAuditService,
 } from '../../../integrations/audit/audit.service';
+import { ShareRepo } from '@docmost/db/repos/share/share.repo';
+
+/**
+ * What removing a member leaves behind. Both fields describe state that
+ * survives the removal and is invisible in the member list afterwards.
+ */
+export interface RemoveSpaceMemberResult {
+  /** Groups through which the user still reaches this space. */
+  residualAccessGroups: { id: string; name: string; role: string }[];
+  /** Public links this user created in this space; they keep working. */
+  sharesCreatedHere: number;
+}
 
 @Injectable()
 export class SpaceMemberService {
   constructor(
     private spaceMemberRepo: SpaceMemberRepo,
+    private shareRepo: ShareRepo,
     private groupUserRepo: GroupUserRepo,
     private spaceRepo: SpaceRepo,
     private watcherRepo: WatcherRepo,
@@ -214,10 +227,18 @@ export class SpaceMemberService {
     }
   }
 
+  /**
+   * Remove one member (user or group) from a space.
+   *
+   * Returns what the caller cannot see from the member list alone: whether the
+   * user still reaches this space through a group, and how many public links
+   * they left behind here. Both survive the removal, and neither shows up
+   * anywhere in the UI afterwards.
+   */
   async removeMemberFromSpace(
     dto: RemoveSpaceMemberDto,
     workspaceId: string,
-  ): Promise<void> {
+  ): Promise<RemoveSpaceMemberResult> {
     const space = await this.spaceRepo.findById(dto.spaceId, workspaceId);
     if (!space) {
       throw new NotFoundException('Space not found');
@@ -282,6 +303,15 @@ export class SpaceMemberService {
       );
     });
 
+    // Space roles are cached for PERMISSION_CACHE_TTL_MS with no invalidation
+    // of their own, so without this the removed user keeps their access for up
+    // to another 5 seconds — and a role *downgrade* keeps the old, higher role
+    // for just as long.
+    await this.spaceMemberRepo.invalidateUserSpaceRoles(
+      affectedUserIds,
+      dto.spaceId,
+    );
+
     this.auditService.log({
       event: AuditEvent.SPACE_MEMBER_REMOVED,
       resourceType: AuditResource.SPACE_MEMBER,
@@ -298,6 +328,20 @@ export class SpaceMemberService {
         memberType: spaceMember.userId ? 'user' : 'group',
       },
     });
+
+    // Only meaningful for a single user. Removing a group tells you nothing
+    // about any one person's remaining paths in, and there is no single
+    // creator to attribute shares to.
+    if (!dto.userId) {
+      return { residualAccessGroups: [], sharesCreatedHere: 0 };
+    }
+
+    const [residualAccessGroups, sharesCreatedHere] = await Promise.all([
+      this.spaceMemberRepo.getResidualAccessGroups(dto.userId, dto.spaceId),
+      this.shareRepo.countBySpaceAndCreator(dto.spaceId, dto.userId),
+    ]);
+
+    return { residualAccessGroups, sharesCreatedHere };
   }
 
   async updateSpaceMemberRole(
