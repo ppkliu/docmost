@@ -1,6 +1,7 @@
 import { useAtom } from "jotai";
 import { UserRole } from "@/lib/types.ts";
 import { currentUserAtom } from "@/features/user/atoms/current-user-atom.ts";
+import { isSpaceMemberCreateEnabled } from "@/lib/config.ts";
 
 export const useUserRole = () => {
   const [currentUser] = useAtom(currentUserAtom);
@@ -13,7 +14,11 @@ export const useUserRole = () => {
 
   const isMember = currentUser?.user?.role === UserRole.MEMBER;
 
-  return { isAdmin, isOwner, isMember };
+  // Mirrors the server's `Create / Space` ability: admins always, members only
+  // when the deployment enabled it.
+  const canCreateSpace = isAdmin || (isMember && isSpaceMemberCreateEnabled());
+
+  return { isAdmin, isOwner, isMember, canCreateSpace };
 };
 
 export default useUserRole;

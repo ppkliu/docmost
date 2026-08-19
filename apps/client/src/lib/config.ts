@@ -121,6 +121,13 @@ export function getEditorToolbarDefault(): boolean {
   return castToBoolean(getConfigValue("EDITOR_TOOLBAR_DEFAULT", "true"));
 }
 
+export function isSpaceMemberCreateEnabled(): boolean {
+  // Default OFF; only an explicit `true` from the server opens it. The button
+  // this drives is cosmetic — the real gate is the server-side CASL check in
+  // SpaceController.createSpace.
+  return castToBoolean(getConfigValue("SPACE_MEMBER_CREATE_ENABLED", "false"));
+}
+
 export function getBillingTrialDays() {
   return getConfigValue("BILLING_TRIAL_DAYS");
 }
