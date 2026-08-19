@@ -4,6 +4,7 @@ import {
   IChangeSpaceMemberRole,
   IExportSpaceParams,
   IRemoveSpaceMember,
+  IRemoveSpaceMemberResult,
   ISpace,
   ISpaceMember,
 } from "@/features/space/types/space.types";
@@ -50,8 +51,12 @@ export async function addSpaceMember(data: IAddSpaceMember): Promise<void> {
 
 export async function removeSpaceMember(
   data: IRemoveSpaceMember,
-): Promise<void> {
-  await api.post("/spaces/members/remove", data);
+): Promise<IRemoveSpaceMemberResult> {
+  const req = await api.post<IRemoveSpaceMemberResult>(
+    "/spaces/members/remove",
+    data,
+  );
+  return req.data;
 }
 
 export async function changeMemberRole(

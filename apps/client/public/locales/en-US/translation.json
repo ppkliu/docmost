@@ -1100,5 +1100,9 @@
   "redirectNotice.grantApplyFailed": "Space permissions could not be synchronized. Try again later or contact an administrator.",
   "redirectNotice.ssoInvalid": "The login information is invalid or expired. Return to the original system and try again.",
   "redirectNotice.ssoUnavailable": "The identity service is temporarily unavailable. Try again later.",
-  "redirectNotice.ssoFailed": "The login redirect failed. Try again later or contact an administrator."
+  "redirectNotice.ssoFailed": "The login redirect failed. Try again later or contact an administrator.",
+  "Access not fully revoked": "Access not fully revoked",
+  "This user still has access to this space through the group(s): {{groups}}. Remove them from the group to revoke access.": "This user still has access to this space through the group(s): {{groups}}. Remove them from the group to revoke access.",
+  "Public links still active": "Public links still active",
+  "This user created {{count}} public link(s) in this space. They keep working — review them under Settings > Sharing.": "This user created {{count}} public link(s) in this space. They keep working — review them under Settings > Sharing."
 }

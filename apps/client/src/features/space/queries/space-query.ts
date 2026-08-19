@@ -10,6 +10,7 @@ import {
   IAddSpaceMember,
   IChangeSpaceMemberRole,
   IRemoveSpaceMember,
+  IRemoveSpaceMemberResult,
   ISpace,
 } from "@/features/space/types/space.types";
 import {
@@ -230,10 +231,40 @@ export function useRemoveSpaceMemberMutation() {
   const queryClient = useQueryClient();
   const { t } = useTranslation();
 
-  return useMutation<void, Error, IRemoveSpaceMember>({
+  return useMutation<IRemoveSpaceMemberResult, Error, IRemoveSpaceMember>({
     mutationFn: (data) => removeSpaceMember(data),
     onSuccess: (data, variables) => {
       notifications.show({ message: t("Member removed successfully") });
+
+      // Removing the membership row is not the same as revoking access: a
+      // group can still let the user in, and any public link they created here
+      // keeps serving the page. Neither is visible in the member list, so this
+      // is the only moment the admin can act on them.
+      const groups = data?.residualAccessGroups ?? [];
+      if (groups.length > 0) {
+        notifications.show({
+          title: t("Access not fully revoked"),
+          message: t(
+            "This user still has access to this space through the group(s): {{groups}}. Remove them from the group to revoke access.",
+            { groups: groups.map((group) => group.name).join(", ") },
+          ),
+          color: "orange",
+          autoClose: false,
+        });
+      }
+
+      if (data?.sharesCreatedHere > 0) {
+        notifications.show({
+          title: t("Public links still active"),
+          message: t(
+            "This user created {{count}} public link(s) in this space. They keep working — review them under Settings > Sharing.",
+            { count: data.sharesCreatedHere },
+          ),
+          color: "orange",
+          autoClose: false,
+        });
+      }
+
       queryClient.invalidateQueries({
         queryKey: ["spaceMembers", variables.spaceId],
       });

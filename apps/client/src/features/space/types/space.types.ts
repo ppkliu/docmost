@@ -62,6 +62,15 @@ export interface IRemoveSpaceMember {
   groupId?: string;
 }
 
+/**
+ * What a removal left behind. Both survive it and are invisible in the member
+ * list afterwards, so the UI has to say so at the moment of removal.
+ */
+export interface IRemoveSpaceMemberResult {
+  residualAccessGroups: { id: string; name: string; role: string }[];
+  sharesCreatedHere: number;
+}
+
 export interface IChangeSpaceMemberRole {
   spaceId: string;
   userId?: string;
