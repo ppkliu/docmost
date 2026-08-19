@@ -26,6 +26,7 @@ import { GroupRepo } from '@docmost/db/repos/group/group.repo';
 import { PaginationOptions } from '@docmost/db/pagination/pagination-options';
 import { UpdateWorkspaceUserRoleDto } from '../dto/update-workspace-user-role.dto';
 import { UserRepo } from '@docmost/db/repos/user/user.repo';
+import { SpaceMemberRepo } from '@docmost/db/repos/space/space-member.repo';
 import { EnvironmentService } from '../../../integrations/environment/environment.service';
 import { DomainService } from '../../../integrations/environment/domain.service';
 import { jsonArrayFrom } from 'kysely/helpers/postgres';
@@ -66,6 +67,7 @@ export class WorkspaceService {
     private domainService: DomainService,
     private licenseCheckService: LicenseCheckService,
     private shareRepo: ShareRepo,
+    private spaceMemberRepo: SpaceMemberRepo,
     private watcherRepo: WatcherRepo,
     private favoriteRepo: FavoriteRepo,
     @InjectKysely() private readonly db: KyselyDB,
@@ -811,6 +813,29 @@ export class WorkspaceService {
       throw new BadRequestException('You cannot delete a user with owner role');
     }
 
+    // Deleting the memberships below is a bulk delete, so it bypasses
+    // SpaceMemberService.validateLastAdmin. A space left with no admin cannot
+    // be recovered through the API — space abilities come only from
+    // `space_members`, so a workspace owner cannot even add themselves back.
+    // Block instead of auto-assigning an heir: quietly adding an owner to
+    // someone's private space is an invisible privilege grant, while an error
+    // naming the spaces is something a human can act on.
+    const soleAdminSpaces = await this.spaceMemberRepo.findSoleAdminSpaces(
+      userId,
+      workspaceId,
+    );
+
+    if (soleAdminSpaces.length > 0) {
+      const names = soleAdminSpaces.map((space) => space.name).join(', ');
+      throw new BadRequestException(
+        `This user is the only admin of: ${names}. ` +
+          'Add another space admin to each of them before deleting the user, ' +
+          'or delete the spaces first.',
+      );
+    }
+
+    let revokedShareIds: string[] = [];
+
     await executeTx(this.db, async (trx) => {
       await this.userRepo.updateUser(
         {
@@ -835,6 +860,14 @@ export class WorkspaceService {
         .where('userId', '=', userId)
         .execute();
 
+      // Public links have no owner once the account is gone, and they keep
+      // serving pages to anyone holding the URL until someone notices.
+      revokedShareIds = await this.shareRepo.deleteByCreatorId(
+        userId,
+        workspaceId,
+        trx,
+      );
+
       await this.watcherRepo.deleteByUserAndWorkspace(userId, workspaceId, {
         trx,
       });
@@ -856,6 +889,9 @@ export class WorkspaceService {
           email: user.email,
           role: user.role,
         },
+      },
+      metadata: {
+        revokedShareCount: revokedShareIds.length,
       },
     });
 
