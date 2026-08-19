@@ -12,6 +12,7 @@ import {
 } from '@docmost/db/types/entity.types';
 import { PaginationOptions } from '../../pagination/pagination-options';
 import { MemberInfo, UserSpaceRole } from './types';
+import { SpaceRole } from '../../../common/helpers/types/permission';
 import { executeWithCursorPagination } from '@docmost/db/pagination/cursor-pagination';
 import { GroupRepo } from '@docmost/db/repos/group/group.repo';
 import { SpaceRepo } from '@docmost/db/repos/space/space.repo';
@@ -90,6 +91,81 @@ export class SpaceMemberRepo {
       .where('id', '=', memberId)
       .where('spaceId', '=', spaceId)
       .execute();
+  }
+
+  /**
+   * Spaces in this workspace whose ONLY admin member row is this user.
+   *
+   * Exists because `deleteUser` deletes space memberships in bulk and so walks
+   * straight past `SpaceMemberService.validateLastAdmin`. Losing the last admin
+   * leaves a space nobody can administer: space abilities are resolved purely
+   * from `space_members` (see SpaceAbilityFactory), so not even a workspace
+   * owner can add themselves back through the API.
+   *
+   * Counts member *rows*, matching `roleCountBySpaceId` — an admin group with
+   * zero users still counts as an admin, same as the existing guard.
+   */
+  async findSoleAdminSpaces(
+    userId: string,
+    workspaceId: string,
+  ): Promise<{ id: string; name: string; slug: string }[]> {
+    const result = await sql<{ id: string; name: string; slug: string }>`
+      SELECT s.id, s.name, s.slug
+        FROM spaces s
+        JOIN space_members sm ON sm.space_id = s.id AND sm.role = ${SpaceRole.ADMIN}
+       WHERE s.workspace_id = ${workspaceId}
+         AND s.deleted_at IS NULL
+       GROUP BY s.id, s.name, s.slug
+      HAVING count(*) = 1 AND bool_or(sm.user_id = ${userId})
+       ORDER BY s.name
+    `.execute(this.db);
+
+    return result.rows;
+  }
+
+  /**
+   * Groups that still grant this user access to a space after their direct
+   * membership is gone. Removing a `space_members` row is not the same as
+   * revoking access — `getUserSpaceRoles` unions direct and group-derived
+   * roles, so the member list can say "removed" while the door stays open.
+   */
+  async getResidualAccessGroups(
+    userId: string,
+    spaceId: string,
+  ): Promise<{ id: string; name: string; role: string }[]> {
+    return this.db
+      .selectFrom('spaceMembers')
+      .innerJoin('groups', 'groups.id', 'spaceMembers.groupId')
+      .innerJoin('groupUsers', 'groupUsers.groupId', 'spaceMembers.groupId')
+      .select([
+        'groups.id as id',
+        'groups.name as name',
+        'spaceMembers.role as role',
+      ])
+      .where('spaceMembers.spaceId', '=', spaceId)
+      .where('groupUsers.userId', '=', userId)
+      .execute();
+  }
+
+  /** Drop the cached space roles so a revocation takes effect now, not in 5s. */
+  async invalidateUserSpaceRoles(
+    userIds: string[],
+    spaceId: string,
+  ): Promise<void> {
+    await Promise.all(
+      userIds.map(async (userId) => {
+        try {
+          await this.cacheManager.del(CacheKey.SPACE_ROLES(userId, spaceId));
+        } catch (err) {
+          // A cache that refuses to forget is not worth failing the removal
+          // over: the entry expires on its own within PERMISSION_CACHE_TTL_MS.
+          console.warn(
+            `[invalidateUserSpaceRoles] del failed for ${userId}:${spaceId}`,
+            err,
+          );
+        }
+      }),
+    );
   }
 
   async roleCountBySpaceId(role: string, spaceId: string): Promise<number> {

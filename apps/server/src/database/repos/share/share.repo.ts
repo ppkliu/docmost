@@ -147,6 +147,52 @@ export class ShareRepo {
       .execute();
   }
 
+  /**
+   * Public links this user created in one space.
+   *
+   * Surfaced when they are removed from that space: a share keeps serving the
+   * page to anyone holding the link — the public endpoints resolve it by key
+   * and never look at whether its creator is still a member.
+   */
+  async countBySpaceAndCreator(
+    spaceId: string,
+    creatorId: string,
+  ): Promise<number> {
+    const { count } = await this.db
+      .selectFrom('shares')
+      .select((eb) => eb.fn.count('id').as('count'))
+      .where('spaceId', '=', spaceId)
+      .where('creatorId', '=', creatorId)
+      .executeTakeFirst();
+
+    return Number(count);
+  }
+
+  /**
+   * Revoke every public link this user created in the workspace.
+   *
+   * Only for account deletion, never for a space removal: the link usually
+   * outlives its creator's involvement (a spec page shared with a customer),
+   * so removing someone from a space must not silently break it. Once the
+   * account is gone, an anonymous entrance they opened has no owner left to
+   * answer for it.
+   */
+  async deleteByCreatorId(
+    creatorId: string,
+    workspaceId: string,
+    trx?: KyselyTransaction,
+  ): Promise<string[]> {
+    const db = dbOrTx(this.db, trx);
+    const deleted = await db
+      .deleteFrom('shares')
+      .where('creatorId', '=', creatorId)
+      .where('workspaceId', '=', workspaceId)
+      .returning('id')
+      .execute();
+
+    return deleted.map((row) => row.id);
+  }
+
   async deleteByWorkspaceId(
     workspaceId: string,
     trx?: KyselyTransaction,
