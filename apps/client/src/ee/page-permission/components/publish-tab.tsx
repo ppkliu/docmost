@@ -14,8 +14,12 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { getPageIcon } from "@/lib";
 import CopyTextButton from "@/components/common/copy";
-import { getAppUrl, isCloud } from "@/lib/config";
-import { buildPageUrl } from "@/features/page/page.utils";
+import { isCloud } from "@/lib/config";
+import {
+  buildPageUrl,
+  buildPublicShareLink,
+} from "@/features/page/page.utils";
+import { usePageQuery } from "@/features/page/queries/page-query";
 import {
   useCreateShareMutation,
   useDeleteShareMutation,
@@ -35,7 +39,7 @@ type PublishTabProps = {
 export function PublishTab({ pageId, readOnly, isRestricted, workspaceSharingDisabled, spaceSharingDisabled }: PublishTabProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { pageSlug, spaceSlug } = useParams();
+  const { spaceSlug } = useParams();
   const { isTrial } = useTrial();
 
   const { data: share } = useShareForPageQuery(pageId);
@@ -46,7 +50,12 @@ export function PublishTab({ pageId, readOnly, isRestricted, workspaceSharingDis
   const pageIsShared = share && share.level === 0;
   const isDescendantShared = share && share.level > 0;
 
-  const publicLink = `${getAppUrl()}/share/${share?.key}/p/${pageSlug}`;
+  const { data: page } = usePageQuery({ pageId });
+  const publicLink = buildPublicShareLink({
+    shareId: share?.key,
+    pageSlugId: page?.slugId,
+    pageTitle: page?.title,
+  });
 
   const [isPagePublic, setIsPagePublic] = useState<boolean>(false);
 

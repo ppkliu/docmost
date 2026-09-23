@@ -22,8 +22,11 @@ import { extractPageSlugId, getPageIcon } from "@/lib";
 import { useTranslation } from "react-i18next";
 import { usePageQuery } from "@/features/page/queries/page-query.ts";
 import CopyTextButton from "@/components/common/copy.tsx";
-import { getAppUrl, isCloud } from "@/lib/config.ts";
-import { buildPageUrl } from "@/features/page/page.utils.ts";
+import { isCloud } from "@/lib/config.ts";
+import {
+  buildPageUrl,
+  buildPublicShareLink,
+} from "@/features/page/page.utils.ts";
 import classes from "@/features/share/components/share.module.css";
 import useTrial from "@/ee/hooks/use-trial.tsx";
 import { useAtom } from "jotai";
@@ -56,7 +59,11 @@ export default function ShareModal({ readOnly }: ShareModalProps) {
   // if level is greater than zero, then it is a descendant page from a shared page
   const isDescendantShared = share && share.level > 0;
 
-  const publicLink = `${getAppUrl()}/share/${share?.key}/p/${pageSlug}`;
+  const publicLink = buildPublicShareLink({
+    shareId: share?.key,
+    pageSlugId,
+    pageTitle: page?.title,
+  });
 
   const [isPagePublic, setIsPagePublic] = useState<boolean>(false);
   useEffect(() => {

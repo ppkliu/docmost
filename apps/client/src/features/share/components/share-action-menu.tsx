@@ -11,7 +11,7 @@ import { useTranslation } from "react-i18next";
 import { ISharedItem } from "@/features/share/types/share.types.ts";
 import {
   buildPageUrl,
-  buildSharedPageUrl,
+  buildPublicShareLink,
 } from "@/features/page/page.utils.ts";
 import { useClipboard } from "@/hooks/use-clipboard";
 import { notifications } from "@mantine/notifications";
@@ -37,7 +37,7 @@ export default function ShareActionMenu({ share }: Props) {
   };
 
   const copyLink = () => {
-    const shareLink = buildSharedPageUrl({
+    const shareLink = buildPublicShareLink({
       shareId: share.key,
       pageTitle: share.page.title,
       pageSlugId: share.page.slugId,

@@ -1,4 +1,5 @@
 import slugify from "@sindresorhus/slugify";
+import { getPublicUrl } from "@/lib/config.ts";
 
 const buildPageSlug = (pageSlugId: string, pageTitle?: string): string => {
   const titleSlug = slugify(pageTitle?.substring(0, 70) || "untitled", {
@@ -41,3 +42,22 @@ export const buildSharedPageUrl = (opts: {
   }
   return anchorId ? `${url}#${anchorId}` : url;
 };
+
+// Whether copied/external share links carry the share key.
+// true:  /share/{key}/p/{slug} - opens with the shared tree, search and branding
+// false: /share/p/{slug}       - opens the single page only
+const PUBLIC_SHARE_LINK_WITH_KEY = true;
+
+// Absolute share link handed to people outside the app (copy / open in new tab).
+// In-app share navigation keeps using buildSharedPageUrl so the key is preserved.
+export const buildPublicShareLink = (opts: {
+  shareId: string;
+  pageSlugId: string;
+  pageTitle?: string;
+}): string =>
+  getPublicUrl(
+    buildSharedPageUrl({
+      ...opts,
+      shareId: PUBLIC_SHARE_LINK_WITH_KEY ? opts.shareId : undefined,
+    }),
+  );
