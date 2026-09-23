@@ -22,7 +22,7 @@ import { useDeletePageModal } from "@/features/page/hooks/use-delete-page-modal.
 import { buildPageUrl } from "@/features/page/page.utils.ts";
 import { duplicatePage } from "@/features/page/services/page-service.ts";
 import { useClipboard } from "@/hooks/use-clipboard";
-import { getAppUrl } from "@/lib/config.ts";
+import { getPublicUrl } from "@/lib/config.ts";
 import { useQueryEmit } from "@/features/websocket/use-query-emit.ts";
 import {
   useFavoriteIds,
@@ -65,7 +65,7 @@ export function NodeMenu({ node, canEdit }: NodeMenuProps) {
 
   const handleCopyLink = () => {
     const pageUrl =
-      getAppUrl() + buildPageUrl(spaceSlug, node.slugId, node.name);
+      getPublicUrl(buildPageUrl(spaceSlug, node.slugId, node.name));
     clipboard.copy(pageUrl);
     notifications.show({ message: t("Link copied") });
   };

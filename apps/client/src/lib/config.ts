@@ -40,6 +40,12 @@ export function withPublicPath(path: string): string {
   return prefix + normalizedPath;
 }
 
+// Absolute URL for links users copy or open outside the router (share links,
+// "copy link"). The router's basename only covers in-app navigation.
+export function getPublicUrl(path: string): string {
+  return getAppUrl() + withPublicPath(path);
+}
+
 export function stripPublicPath(path: string): string {
   const prefix = getPublicPathPrefix();
   if (!prefix) return path;

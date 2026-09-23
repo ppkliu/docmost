@@ -30,6 +30,7 @@ import { buildSharedPageUrl } from "@/features/page/page.utils.ts";
 import { extractPageSlugId } from "@/lib";
 import { sanitizeUrl, copyToClipboard } from "@docmost/editor-ext";
 import { normalizeUrl } from "@/lib/utils";
+import { getPublicUrl } from "@/lib/config.ts";
 
 const parseInternalLink = (
   href: string,
@@ -301,7 +302,7 @@ export default function LinkView(props: MarkViewProps) {
       e.stopPropagation();
 
       const fullUrl = sanitizeUrl(
-        isInternal ? `${window.location.origin}${href}` : href,
+        isInternal && href.startsWith("/") ? getPublicUrl(href) : href,
       );
       copyToClipboard(fullUrl);
       notifications.show({

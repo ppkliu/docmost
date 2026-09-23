@@ -33,7 +33,7 @@ import { useParams } from "react-router-dom";
 import { usePageQuery } from "@/features/page/queries/page-query.ts";
 import { buildPageUrl } from "@/features/page/page.utils.ts";
 import { notifications } from "@mantine/notifications";
-import { getAppUrl } from "@/lib/config.ts";
+import { getPublicUrl } from "@/lib/config.ts";
 import { networkOriginBlockedText } from "@/lib/network-origin";
 import { extractPageSlugId } from "@/lib";
 import { useTreeMutation } from "@/features/page/tree/hooks/use-tree-mutation.ts";
@@ -177,7 +177,7 @@ function PageActionMenu({ readOnly }: PageActionMenuProps) {
 
   const handleCopyLink = () => {
     const pageUrl =
-      getAppUrl() + buildPageUrl(spaceSlug, page.slugId, page.title);
+      getPublicUrl(buildPageUrl(spaceSlug, page.slugId, page.title));
 
     clipboard.copy(pageUrl);
     notifications.show({ message: t("Link copied") });
