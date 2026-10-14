@@ -28,6 +28,7 @@ import {
 
 @Injectable()
 export class CollaborationGateway {
+  private static readonly SHUTDOWN_TIMEOUT_MS = 60_000;
   private readonly hocuspocus: Hocuspocus;
   private redisConfig: RedisConfig;
   // @ts-ignore
@@ -164,8 +165,23 @@ export class CollaborationGateway {
   }
 
   async destroy(collabWsAdapter: CollabWsAdapter): Promise<void> {
+    // Shutting down: store every document as soon as its last connection
+    // closes instead of waiting for the debounce timer (up to 10s, see the
+    // constructor). Edits that only exist in memory are what a restart loses.
+    this.hocuspocus.configuration.unloadImmediately = true;
+
     // eslint-disable-next-line no-async-promise-executor
     await new Promise(async (resolve) => {
+      // Never hang past the container's stop_grace_period (90s): a document
+      // that cannot be stored would otherwise block the remaining shutdown hooks.
+      const timer = setTimeout(() => {
+        console.error(
+          `Collaboration shutdown timed out with ${this.hocuspocus.getDocumentsCount()} document(s) still loaded`,
+        );
+        resolve('');
+      }, CollaborationGateway.SHUTDOWN_TIMEOUT_MS);
+      timer.unref?.();
+
       try {
         // Wait for all documents to unload
         this.hocuspocus.configuration.extensions.push({
@@ -178,6 +194,14 @@ export class CollaborationGateway {
 
         if (this.hocuspocus.getDocumentsCount() === 0) resolve('');
         this.hocuspocus.closeConnections();
+
+        // Documents whose last editor already left are no longer reached by
+        // closeConnections(); run their pending store now as well.
+        this.hocuspocus.documents.forEach((document, name) => {
+          if (document.getConnectionsCount() === 0) {
+            this.hocuspocus.debouncer.executeNow(`onStoreDocument-${name}`);
+          }
+        });
       } catch (error) {
         console.error(error);
       }
