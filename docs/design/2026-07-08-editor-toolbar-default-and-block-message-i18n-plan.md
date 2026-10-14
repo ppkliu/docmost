@@ -13,7 +13,7 @@
 - Do **not** modify docmost outside the files named here; keep the change surface minimal (fork stays close to upstream — see REPOS.md).
 - Per-user preference wins: `EDITOR_TOOLBAR_DEFAULT` only sets the fallback when a user has never toggled `editorToolbar`. Never override a stored user value.
 - No AI-attribution strings in code or commit messages. Commit messages in English, `type: message` form.
-- Verification gate (CLAUDE.md verify-first): server `npx tsc --noEmit -p apps/server/tsconfig.json` (the 2 pre-existing `collaboration/extensions/redis-sync/*` errors are unrelated and expected); client `cd apps/client && npx eslint .` on changed files. Report failures honestly.
+- Verification gate (verify before reporting done): server `npx tsc --noEmit -p apps/server/tsconfig.json` (the 2 pre-existing `collaboration/extensions/redis-sync/*` errors are unrelated and expected); client `cd apps/client && npx eslint .` on changed files. Report failures honestly.
 - i18n coverage for this change: `en-US` (source, keeps English) + `zh-CN` (Simplified Chinese) only. Other locales fall back automatically.
 - The three natural-language i18n keys (used verbatim as JSON keys, docmost's natural-key convention):
   - `This download is blocked on the office network because the page, a subpage, or an attachment was created from the internal network.`
@@ -76,7 +76,7 @@ git add apps/server/src/integrations/environment/environment.service.ts apps/ser
 git commit -m "feat: expose EDITOR_TOOLBAR_DEFAULT env to client config"
 ```
 
-Note: `.env` is git-ignored / must not be committed (CLAUDE.md) — edit it on disk but only stage `.env.example`.
+Note: `.env` is git-ignored and must never be committed — edit it on disk but only stage `.env.example`.
 
 ---
 
@@ -296,7 +296,7 @@ git add apps/client/public/locales/en-US/translation.json apps/client/public/loc
 git commit -m "chore: add zh-CN/en-US strings for network-origin block message"
 ```
 
-(Per CLAUDE.md: code and locale/data files go in separate commits — network-origin.ts first, then the translation JSON.)
+(Code and locale/data files go in separate commits — network-origin.ts first, then the translation JSON.)
 
 ---
 
