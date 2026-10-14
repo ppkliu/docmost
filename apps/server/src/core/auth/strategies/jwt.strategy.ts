@@ -94,6 +94,9 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
   }
 
   private async validateApiKey(req: any, payload: JwtApiKeyPayload) {
+    // Lets handlers apply stricter rules to API-key callers (agents, scripts)
+    // than to browser sessions — see PageDeleteGuardService.
+    req.raw.authType = 'api_key';
     // Prefer the enterprise API key service when bundled, otherwise fall back
     // to the open-source implementation (core ApiKeyModule).
     try {

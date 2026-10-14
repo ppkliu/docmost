@@ -12,6 +12,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { PageService } from './services/page.service';
+import { PageDeleteGuardService } from './services/page-delete-guard.service';
 import { BacklinkService } from './services/backlink.service';
 import { PageAccessService } from './page-access/page-access.service';
 import { CreatePageDto } from './dto/create-page.dto';
@@ -69,6 +70,7 @@ export class PageController {
     private readonly labelService: LabelService,
     private readonly networkOriginService: NetworkOriginService,
     @Inject(AUDIT_SERVICE) private readonly auditService: IAuditService,
+    private readonly pageDeleteGuard: PageDeleteGuardService,
   ) {}
 
   @HttpCode(HttpStatus.OK)
@@ -330,6 +332,7 @@ export class PageController {
     @Body() deletePageDto: DeletePageDto,
     @AuthUser() user: User,
     @AuthWorkspace() workspace: Workspace,
+    @Req() req: any,
   ) {
     const page = await this.pageRepo.findById(deletePageDto.pageId);
 
@@ -339,6 +342,8 @@ export class PageController {
 
     const ability = await this.spaceAbility.createForUser(user, page.spaceId);
 
+    // Permission checks stay first, so a caller without rights gets 403
+    // rather than a confirmation prompt it could never complete.
     if (deletePageDto.permanentlyDelete) {
       // Permanent deletion requires space admin permissions
       if (ability.cannot(SpaceCaslAction.Manage, SpaceCaslSubject.Settings)) {
@@ -346,6 +351,28 @@ export class PageController {
           'Only space admins can permanently delete pages',
         );
       }
+    } else {
+      // User with edit permission can delete
+      await this.pageAccessService.validateCanEdit(page, user);
+    }
+
+    // API-key callers (agents, scripts): no child pages, and an explicit
+    // two-step confirmation. Browser sessions keep the UI's own dialog.
+    const apiKeyApproval = this.pageDeleteGuard.isApiKeyRequest(req)
+      ? await this.pageDeleteGuard.assertDeletable({
+          page,
+          user,
+          workspace,
+          permanentlyDelete: deletePageDto.permanentlyDelete,
+          confirmToken: deletePageDto.confirmToken,
+          confirmedBy: deletePageDto.confirmedBy,
+        })
+      : null;
+    const approval = apiKeyApproval
+      ? { via: 'api_key', confirmedBy: apiKeyApproval.confirmedBy }
+      : {};
+
+    if (deletePageDto.permanentlyDelete) {
       await this.pageService.forceDelete(deletePageDto.pageId, workspace.id);
 
       this.auditService.log({
@@ -360,12 +387,10 @@ export class PageController {
             title: getPageTitle(page.title),
             spaceId: page.spaceId,
           },
+          ...approval,
         },
       });
     } else {
-      // User with edit permission can delete
-      await this.pageAccessService.validateCanEdit(page, user);
-
       await this.pageService.removePage(
         deletePageDto.pageId,
         user.id,
@@ -384,6 +409,7 @@ export class PageController {
             title: getPageTitle(page.title),
             spaceId: page.spaceId,
           },
+          ...approval,
         },
       });
     }

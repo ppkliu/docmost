@@ -4,6 +4,7 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
+  MaxLength,
   IsUUID,
 } from 'class-validator';
 import { Transform } from 'class-transformer';
@@ -45,4 +46,16 @@ export class DeletePageDto extends PageIdDto {
   @IsOptional()
   @IsBoolean()
   permanentlyDelete?: boolean;
+
+  // API-key deletes only (PageDeleteGuardService): the token from the
+  // CONFIRMATION_REQUIRED response, and who approved the delete.
+  @IsOptional()
+  @IsString()
+  @MaxLength(2000)
+  confirmToken?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  confirmedBy?: string;
 }

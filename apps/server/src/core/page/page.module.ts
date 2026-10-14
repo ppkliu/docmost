@@ -5,6 +5,7 @@ import { PageReviewController } from './page-review.controller';
 import { PageHistoryService } from './services/page-history.service';
 import { PageReviewService } from './services/page-review.service';
 import { TrashCleanupService } from './services/trash-cleanup.service';
+import { PageDeleteGuardService } from './services/page-delete-guard.service';
 import { BacklinkService } from './services/backlink.service';
 import { StorageModule } from '../../integrations/storage/storage.module';
 import { CollaborationModule } from '../../collaboration/collaboration.module';
@@ -20,6 +21,7 @@ import { LabelModule } from '../label/label.module';
     PageReviewService,
     TrashCleanupService,
     BacklinkService,
+    PageDeleteGuardService,
   ],
   exports: [PageService, PageHistoryService],
   imports: [
