@@ -73,4 +73,8 @@ VOLUME ["/app/data/storage"]
 EXPOSE 3000
 
 ENTRYPOINT ["docker-entrypoint.sh"]
-CMD ["pnpm", "start"]
+# Start node directly instead of `pnpm start`. pnpm -> pnpm -> cross-env -> node
+# does not pass SIGTERM down, so Nest's shutdown hooks never ran and `docker stop`
+# dropped whatever the collaboration server had not stored yet. The working
+# directory matters: the server resolves .env and the client bundle from cwd.
+CMD ["sh", "-c", "cd /app/apps/server && NODE_ENV=production exec node dist/main"]

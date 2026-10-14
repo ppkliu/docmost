@@ -17,6 +17,8 @@ services:
     env_file:
       - .env.dev
     container_name: mydocmost-dev
+    # 停機時協作服務要把還在記憶體裡的編輯寫進資料庫;Docker 預設 10 秒就 SIGKILL。
+    stop_grace_period: 90s
     environment:
       TZ: ${TZ:-Asia/Taipei}
       HOST: 0.0.0.0

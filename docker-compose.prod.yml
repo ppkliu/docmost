@@ -8,6 +8,8 @@ services:
   docmost:
     image: ${DOCMOST_IMAGE:-agentwiki-docmost:latest}
     container_name: mydocmost-prod
+    # 停機時協作服務要把還在記憶體裡的編輯寫進資料庫;Docker 預設 10 秒就 SIGKILL。
+    stop_grace_period: 90s
     depends_on:
       - db
       - valkey
