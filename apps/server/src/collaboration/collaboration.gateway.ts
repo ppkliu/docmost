@@ -138,6 +138,50 @@ export class CollaborationGateway {
     return this.hocuspocus.getDocumentsCount();
   }
 
+  /**
+   * Who is connected to which document right now, and which documents still
+   * hold edits that have not been written to the database (a store is pending
+   * on the debounce timer). Read-only; used by the presence endpoint.
+   */
+  getPresence(workspaceId?: string) {
+    const documents: {
+      name: string;
+      connections: number;
+      userIds: string[];
+      unsaved: boolean;
+    }[] = [];
+
+    this.hocuspocus.documents.forEach((document, name) => {
+      const userIds = new Set<string>();
+      let inWorkspace = !workspaceId;
+      document.getConnections().forEach((connection) => {
+        const user = connection.context?.user;
+        if (!user?.id) return;
+        if (workspaceId && user.workspaceId !== workspaceId) return;
+        inWorkspace = true;
+        userIds.add(user.id);
+      });
+      if (!inWorkspace) return;
+
+      documents.push({
+        name,
+        connections: document.getConnectionsCount(),
+        userIds: [...userIds],
+        unsaved: this.hasPendingStore(name),
+      });
+    });
+
+    return { documents };
+  }
+
+  private hasPendingStore(documentName: string): boolean {
+    const id = `onStoreDocument-${documentName}`;
+    return (
+      this.hocuspocus.debouncer.isDebounced(id) ||
+      this.hocuspocus.debouncer.isCurrentlyExecuting(id)
+    );
+  }
+
   handleYjsEvent<TName extends keyof CollabEventHandlers>(
     eventName: TName,
     documentName: string,

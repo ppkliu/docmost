@@ -15,6 +15,7 @@ import { QueueModule } from './integrations/queue/queue.module';
 import { StaticModule } from './integrations/static/static.module';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { HealthModule } from './integrations/health/health.module';
+import { PresenceModule } from './integrations/presence/presence.module';
 import { ExportModule } from './integrations/export/export.module';
 import { ImportModule } from './integrations/import/import.module';
 import { SecurityModule } from './integrations/security/security.module';
@@ -73,6 +74,7 @@ try {
     QueueModule,
     StaticModule,
     HealthModule,
+    PresenceModule,
     ImportModule,
     ExportModule,
     StorageModule.forRootAsync({
