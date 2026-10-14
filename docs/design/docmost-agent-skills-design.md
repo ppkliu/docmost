@@ -116,8 +116,8 @@ is the agent's own model. Skills are the hands; the agent is the head.
 - **Hermes Agent / opencode (function-calling):** consume the auto-generated **OpenAPI**. Ship
   `skills/docmost.openapi.json` (filtered to §3.1) + `skills/docmost.skills.json`
   (skill-name → operationId). Auth: `Authorization: Bearer <API_KEY>`.
-- **opencode / Claude-family (MCP):** `claude mcp add docmost --transport http <url>/mcp
-  --header "Authorization: Bearer <key>"`. Same tools, no extra files.
+- **MCP clients:** register `<url>/mcp` as a streamable HTTP server with an
+  `Authorization: Bearer <key>` header (see USER-MANUAL §3.2). Same tools, no extra files.
 - **openclaw:** ship `skills/docmost/` — one descriptor (markdown + JSON-schema + example) per
   §3.1 skill, plus a recommended **organize recipe** (the loop in §5) so the agent knows how to
   compose them.

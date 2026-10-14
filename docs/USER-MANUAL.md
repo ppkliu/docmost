@@ -56,11 +56,21 @@ playbooks.
 Set `DOCMOST_BASE_URL` + `DOCMOST_API_KEY`; each skill = `POST {BASE}/api{path}` with the bearer
 header. Read the `data` field of the `{ data, success, status }` envelope.
 
-### 3.2 MCP (opencode / Claude-family)
+### 3.2 MCP clients
+Add Docmost as a remote (streamable HTTP) MCP server in your client's MCP config:
+```json
+{
+  "mcpServers": {
+    "docmost": {
+      "type": "http",
+      "url": "<DOCMOST_BASE_URL>/mcp",
+      "headers": { "Authorization": "Bearer <key>" }
+    }
+  }
+}
 ```
-claude mcp add docmost --transport http <DOCMOST_BASE_URL>/mcp \
-  --header "Authorization: Bearer <key>"
-```
+Clients that only support stdio servers can bridge with
+`npx mcp-remote <DOCMOST_BASE_URL>/mcp --header "Authorization: Bearer <key>"`.
 MCP tools cover the full flow: `search_pages, get_page, create_page, update_page, list_spaces,
 list_recent_pages, get_current_user` **plus** `list_labels, add_page_labels, set_page_summary,
 dedup_analyze, organize_create, organize_report, organize_close`.
@@ -118,7 +128,7 @@ With the stack running and an API key in `$KEY`:
    `statusUrl` in a browser; in another shell `POST /api/organize-tasks/events {organizeTaskId,
    step:"summarize", countsAsProgress:true}` and watch the panel update; finish with
    `POST /api/organize-tasks/update {organizeTaskId, status:"succeeded"}`.
-6. **MCP** — add the server in Claude Code (§3.2) and call `dedup_analyze` / `organize_create`.
+6. **MCP** — add the server in your MCP client (§3.2) and call `dedup_analyze` / `organize_create`.
 
 ---
 

@@ -33,13 +33,22 @@ bearer header. Read the `data` field of the `{ data, success, status }` envelope
 > For native function-schema import, load [`docmost.openapi.json`](./docmost.openapi.json)
 > (OpenAPI 3.1, 20 operations). `docmost.skills.json` remains the human-readable index.
 
-### opencode / Claude-family (MCP — no files needed)
+### MCP clients (no files needed)
 Docmost exposes the same operations over MCP at `<DOCMOST_BASE_URL>/mcp` using the **same API
-key**:
+key**. Add Docmost as a remote (streamable HTTP) MCP server in your client's MCP config:
+```json
+{
+  "mcpServers": {
+    "docmost": {
+      "type": "http",
+      "url": "https://wiki.example.com/mcp",
+      "headers": { "Authorization": "Bearer dm_..." }
+    }
+  }
+}
 ```
-claude mcp add docmost --transport http https://wiki.example.com/mcp \
-  --header "Authorization: Bearer dm_..."
-```
+Clients that only support stdio servers can bridge with
+`npx mcp-remote https://wiki.example.com/mcp --header "Authorization: Bearer dm_..."`.
 MCP now surfaces the full set: read/write pages, search, spaces, **plus** `list_labels`,
 `add_page_labels`, `set_page_summary`, `dedup_analyze`, and `organize_create/report/close` — so
 the entire organize flow is drivable over MCP as well as REST.

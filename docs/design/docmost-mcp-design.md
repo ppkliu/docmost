@@ -1,8 +1,8 @@
 # Docmost OSS MCP Server — 規格書 (Workstream C)
 
 > Status: **DESIGN / for review**. No code yet. Open-source, in-server implementation of
-> Docmost's **MCP (Model Context Protocol)** server so MCP-aware clients (Claude Desktop,
-> Claude Code, Cursor, opencode, Hermes) can drive the wiki — matching the official
+> Docmost's **MCP (Model Context Protocol)** server so MCP-aware clients (Cursor,
+> opencode, Hermes and others) can drive the wiki — matching the official
 > behavior at <https://docmost.com/docs/user-guide/mcp>.
 >
 > Companion specs: [`docmost-agent-api-spec.md`](./docmost-agent-api-spec.md) (REST gateway),
@@ -103,9 +103,9 @@ Each MCP tool maps to an **existing core service/controller path** (no new busin
   `AttachmentService`, CASL ability factories.
 
 ## 5. Client configuration (docs to ship)
-- **Claude Code:** `claude mcp add docmost --transport http <url>/mcp --header "Authorization: Bearer <key>"`.
-- **Claude Desktop / Cursor:** `mcp-remote` via npx pointing at `<url>/mcp` with the bearer
-  header. Provide a ready-to-paste JSON snippet in the README.
+- **HTTP-capable clients:** register `<url>/mcp` as a streamable HTTP server with an
+  `Authorization: Bearer <key>` header. Provide a ready-to-paste JSON snippet in the README.
+- **stdio-only clients:** `mcp-remote` via npx pointing at `<url>/mcp` with the bearer header.
 
 ## 6. Feature-gate note
 Same wrinkle as the AI features: the client only surfaces MCP settings when
@@ -130,7 +130,7 @@ Same wrinkle as the AI features: the client only surfaces MCP settings when
   `list_spaces` then `create_page` then `get_page` (assert round-trip); a reader key cannot
   write / cannot see other spaces (CASL enforced); MCP-disabled workspace → tool calls
   rejected.
-- **Live client smoke:** add the server in Claude Code and call a tool.
+- **Live client smoke:** add the server in an MCP client and call a tool.
 - **Regression:** `app.module` boots with `ee` absent; `/mcp` returns proper MCP errors when
   unauthenticated.
 
