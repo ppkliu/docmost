@@ -205,7 +205,7 @@ export class AttachmentController {
       await this.pageAccessService.validateCanView(page, user);
     }
 
-    if (!this.isImageEmbedRequest(req, attachment)) {
+    if (!this.networkOriginService.isImageViewExempt(attachment, req)) {
       this.networkOriginService.assertCanDownloadAttachment(attachment, req);
     }
 
@@ -257,7 +257,7 @@ export class AttachmentController {
       throw new NotFoundException('File not found');
     }
 
-    if (!this.isImageEmbedRequest(req, attachment)) {
+    if (!this.networkOriginService.isImageViewExempt(attachment, req)) {
       this.networkOriginService.assertCanDownloadAttachment(attachment, req);
     }
 
@@ -474,32 +474,6 @@ export class AttachmentController {
       await this.attachmentService.removeWorkspaceIcon(workspace);
       return;
     }
-  }
-
-  /**
-   * Network-origin exemption for inline image rendering (2026-07-03 design v2, G3):
-   * a browser loading an <img> tag sends `Sec-Fetch-Dest: image`. Restricted
-   * images stay visible embedded in a page but any other request shape for
-   * the same URL (direct navigation, "save as", fetch/XHR download) is still
-   * subject to the normal network-origin check. This is a best-effort UX
-   * exemption, not a security boundary — anything renderable is copyable.
-   */
-  private isImageEmbedRequest(
-    req: FastifyRequest,
-    attachment: Attachment,
-  ): boolean {
-    const isImage = attachment.mimeType?.startsWith('image/') ?? false;
-    if (!isImage) return false;
-    // Fork behavior: keep images viewable from any network zone (internal &
-    // external) by treating every image request as exempt from the
-    // network-origin rule, not just Sec-Fetch-Dest:image embeds. Non-image
-    // attachments stay zone-gated. Toggle off with
-    // DOCMOST_IMAGE_VIEW_IGNORE_NETWORK_ORIGIN=false.
-    if (this.environmentService.getImageViewIgnoreNetworkOrigin()) {
-      return true;
-    }
-    const secFetchDest = req.headers?.['sec-fetch-dest'];
-    return secFetchDest === 'image';
   }
 
   private async sendFileResponse(

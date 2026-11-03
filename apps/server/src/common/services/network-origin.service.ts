@@ -281,6 +281,25 @@ export class NetworkOriginService {
     });
   }
 
+  /**
+   * Whether serving this image skips the zone rule (G3, revised 2026-11-03).
+   * Over plain HTTP browsers never send Sec-Fetch-Dest, so showing an image and
+   * downloading it are the same request: an image an office user can see is an
+   * image they can save. Images labelled 'internal' are therefore never exempt
+   * (they render broken from the office network); everything else — external,
+   * MrDoc-migrated, and unlabelled legacy images — keeps the old exemption so
+   * existing pages do not break.
+   */
+  isImageViewExempt(
+    attachment: Pick<Attachment, 'mimeType' | 'originNetworkScope'>,
+    req: FastifyRequest,
+  ): boolean {
+    if (!attachment.mimeType?.startsWith('image/')) return false;
+    if (attachment.originNetworkScope === 'internal') return false;
+    if (this.environmentService.getImageViewIgnoreNetworkOrigin()) return true;
+    return req.headers?.['sec-fetch-dest'] === 'image';
+  }
+
   filterAllowedPages<T extends Pick<Page, 'id' | 'originNetworkScope'>>(
     pages: T[],
     req: FastifyRequest,
