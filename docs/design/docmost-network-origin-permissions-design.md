@@ -392,9 +392,13 @@ NETWORK_ORIGIN_PERMISSION_BLOCKED
 顯示與下載是同一個請求。`isImageViewExempt()`(`network-origin.service.ts`,取代 controller 的
 `isImageEmbedRequest()`)改為:
 
-- `origin_network_scope = 'internal'` 的圖片**永遠不豁免**,辦公網看到破圖;
+- `origin_network_scope = 'internal'` 的圖片**永遠不豁免**。辦公網請求時不回 403(會破圖),而是回 200 +
+  替代圖(`common/services/internal-image-placeholder.ts`:鎖頭 +「內網圖片 無法在外網顯示」),
+  `Cache-Control: private, no-store`(同一個 URL 內網要拿到真圖)、`X-Network-Origin-Blocked: internal-image`,
+  並照常記 `NETWORK_ORIGIN_PERMISSION_BLOCKED action=view`。判斷在 `shouldServeImagePlaceholder()`;
+  非圖片附件仍是 403;
 - `external`、`mrdoc`、沒有標記的圖片維持 §11 的豁免(`DOCMOST_IMAGE_VIEW_IGNORE_NETWORK_ORIGIN=true`),
-  所以 MrDoc 遷移與舊頁面的圖片不會破圖;設 `false` 時仍只放行 `Sec-Fetch-Dest: image`。
+  所以 MrDoc 遷移與舊頁面的圖片照常顯示;設 `false` 時仍只放行 `Sec-Fetch-Dest: image`。
 
 ### 複製頁面
 
