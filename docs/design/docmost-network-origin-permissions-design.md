@@ -393,12 +393,25 @@ NETWORK_ORIGIN_PERMISSION_BLOCKED
 `isImageEmbedRequest()`)改為:
 
 - `origin_network_scope = 'internal'` 的圖片**永遠不豁免**。辦公網請求時不回 403(會破圖),而是回 200 +
-  替代圖(`common/services/internal-image-placeholder.ts`:鎖頭 +「內網圖片 無法在外網顯示」),
+  替代圖(`common/services/internal-image-placeholder.ts`:鎖頭 +「内网图片 无法在外网显示」,簡體),
   `Cache-Control: private, no-store`(同一個 URL 內網要拿到真圖)、`X-Network-Origin-Blocked: internal-image`,
   並照常記 `NETWORK_ORIGIN_PERMISSION_BLOCKED action=view`。判斷在 `shouldServeImagePlaceholder()`;
-  非圖片附件仍是 403;
+  非圖片附件見下一小節;
 - `external`、`mrdoc`、沒有標記的圖片維持 §11 的豁免(`DOCMOST_IMAGE_VIEW_IGNORE_NETWORK_ORIGIN=true`),
   所以 MrDoc 遷移與舊頁面的圖片照常顯示;設 `false` 時仍只放行 `Sec-Fetch-Dest: image`。
+
+### 非圖片附件:提示頁
+
+站內的下載按鈕(`downloadWithNetworkOriginGuard`)收到 403 會跳出「该附件由内网上传，请连接内网后下载。」,
+不需要改。會看到原始 403 JSON 的是瀏覽器**直接打開**附件網址:PDF 內嵌預覽(iframe)、搜尋結果的下載
+(`window.open`)、貼上的連結。這些請求的 `Accept` 帶 `text/html`,`shouldServeAttachmentNotice()` 對它們
+改回提示頁(`common/services/internal-attachment-notice.ts`,簡體:「该附件由内网上传，无法在外网下载。
+请连接内网后再打开或下载。」+ 檔名)。
+
+- **狀態碼仍是 403**:腳本、監控、adapter 照舊視為拒絕;瀏覽器顯示的是內容本身。改回 200 反而不好:
+  帶 `download` 屬性的連結會把提示頁存成 `xxx.pdf`。
+- 不帶 `text/html` 的請求(站內 fetch、adapter、API key)照舊回 JSON,前端的比對(訊息含 `network origin`)不受影響。
+- `Cache-Control: private, no-store`、`X-Network-Origin-Blocked: internal-attachment`,並記 `NETWORK_ORIGIN_PERMISSION_BLOCKED`。
 
 ### 複製頁面
 
