@@ -11,6 +11,7 @@ function makeService(overrides: Partial<any> = {}) {
     getTrustProxy: jest.fn().mockReturnValue(false),
     getEntranceHeaderRequired: jest.fn().mockReturnValue(false),
     getDeploymentZone: jest.fn().mockReturnValue(null),
+    getImageViewIgnoreNetworkOrigin: jest.fn().mockReturnValue(true),
     ...overrides,
   };
 
@@ -252,6 +253,65 @@ describe('NetworkOriginService', () => {
       expect(trusted.getRequestOrigin(forwarded).originNetworkScope).toBe(
         'external',
       );
+    });
+  });
+
+  describe('isImageViewExempt', () => {
+    const image = (originNetworkScope: string | null) =>
+      ({ mimeType: 'image/png', originNetworkScope }) as any;
+
+    it('never exempts images labelled internal, even as an <img> embed', () => {
+      const { service } = makeService();
+
+      expect(
+        service.isImageViewExempt(image('internal'), req('172.20.8.44')),
+      ).toBe(false);
+      expect(
+        service.isImageViewExempt(
+          image('internal'),
+          req('172.20.8.44', { 'sec-fetch-dest': 'image' }),
+        ),
+      ).toBe(false);
+    });
+
+    it('keeps external, MrDoc and unlabelled images exempt so old pages do not break', () => {
+      const { service } = makeService();
+
+      for (const scope of ['external', 'mrdoc', 'unknown', null]) {
+        expect(
+          service.isImageViewExempt(image(scope), req('172.20.8.44')),
+        ).toBe(true);
+      }
+    });
+
+    it('never exempts non-image attachments', () => {
+      const { service } = makeService();
+
+      expect(
+        service.isImageViewExempt(
+          {
+            mimeType: 'application/pdf',
+            originNetworkScope: 'external',
+          } as any,
+          req('172.20.8.44'),
+        ),
+      ).toBe(false);
+    });
+
+    it('falls back to the Sec-Fetch-Dest embed check when the switch is off', () => {
+      const { service } = makeService({
+        getImageViewIgnoreNetworkOrigin: jest.fn().mockReturnValue(false),
+      });
+
+      expect(
+        service.isImageViewExempt(image('mrdoc'), req('172.20.8.44')),
+      ).toBe(false);
+      expect(
+        service.isImageViewExempt(
+          image('mrdoc'),
+          req('172.20.8.44', { 'sec-fetch-dest': 'image' }),
+        ),
+      ).toBe(true);
     });
   });
 });
