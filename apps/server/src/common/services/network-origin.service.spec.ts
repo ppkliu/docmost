@@ -314,4 +314,46 @@ describe('NetworkOriginService', () => {
       ).toBe(true);
     });
   });
+
+  describe('shouldServeImagePlaceholder', () => {
+    const image = (originNetworkScope: string | null) =>
+      ({ id: 'a1', mimeType: 'image/png', originNetworkScope }) as any;
+
+    it('serves the placeholder for internal images requested from the office network', () => {
+      const { service } = makeService();
+
+      expect(
+        service.shouldServeImagePlaceholder(
+          image('internal'),
+          req('172.20.8.44'),
+        ),
+      ).toBe(true);
+    });
+
+    it('serves the real image to the internal network', () => {
+      const { service } = makeService();
+
+      expect(
+        service.shouldServeImagePlaceholder(
+          image('internal'),
+          req('100.1.2.3'),
+        ),
+      ).toBe(false);
+    });
+
+    it('keeps the 403 path for non-image attachments', () => {
+      const { service } = makeService();
+
+      expect(
+        service.shouldServeImagePlaceholder(
+          {
+            id: 'a2',
+            mimeType: 'application/pdf',
+            originNetworkScope: 'internal',
+          } as any,
+          req('172.20.8.44'),
+        ),
+      ).toBe(false);
+    });
+  });
 });
