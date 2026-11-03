@@ -25,6 +25,7 @@ import { AuthUser } from '../../common/decorators/auth-user.decorator';
 import { AuthWorkspace } from '../../common/decorators/auth-workspace.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { Attachment, User, Workspace } from '@docmost/db/types/entity.types';
+import { INTERNAL_IMAGE_PLACEHOLDER_SVG } from '../../common/services/internal-image-placeholder';
 import { StorageService } from '../../integrations/storage/storage.service';
 import {
   getAttachmentFolderPath,
@@ -206,6 +207,11 @@ export class AttachmentController {
     }
 
     if (!this.networkOriginService.isImageViewExempt(attachment, req)) {
+      if (
+        this.networkOriginService.shouldServeImagePlaceholder(attachment, req)
+      ) {
+        return this.sendInternalImagePlaceholder(res);
+      }
       this.networkOriginService.assertCanDownloadAttachment(attachment, req);
     }
 
@@ -258,6 +264,11 @@ export class AttachmentController {
     }
 
     if (!this.networkOriginService.isImageViewExempt(attachment, req)) {
+      if (
+        this.networkOriginService.shouldServeImagePlaceholder(attachment, req)
+      ) {
+        return this.sendInternalImagePlaceholder(res);
+      }
       this.networkOriginService.assertCanDownloadAttachment(attachment, req);
     }
 
@@ -474,6 +485,23 @@ export class AttachmentController {
       await this.attachmentService.removeWorkspaceIcon(workspace);
       return;
     }
+  }
+
+  /**
+   * Internal-network image requested from the office network: a placeholder
+   * SVG instead of a broken image (design §12). Never cached, because the URL
+   * is the same one internal users load the real image from.
+   */
+  private sendInternalImagePlaceholder(res: FastifyReply) {
+    res.status(200);
+    res.headers({
+      'Content-Type': 'image/svg+xml; charset=utf-8',
+      'Cache-Control': 'private, no-store',
+      'Content-Security-Policy':
+        "default-src 'none'; style-src 'unsafe-inline'",
+      'X-Network-Origin-Blocked': 'internal-image',
+    });
+    return res.send(INTERNAL_IMAGE_PLACEHOLDER_SVG);
   }
 
   private async sendFileResponse(

@@ -300,6 +300,26 @@ export class NetworkOriginService {
     return req.headers?.['sec-fetch-dest'] === 'image';
   }
 
+  /**
+   * True when this request must get the internal-image placeholder instead of
+   * the image (design §12): a non-exempt image the zone rule denies. Logged
+   * like any other block. Non-images return false and keep the 403 path.
+   */
+  shouldServeImagePlaceholder(
+    attachment: Pick<Attachment, 'id' | 'mimeType' | 'originNetworkScope'>,
+    req: FastifyRequest,
+  ): boolean {
+    if (!attachment.mimeType?.startsWith('image/')) return false;
+    if (this.isAllowed(attachment.originNetworkScope, req)) return false;
+    this.logBlocked(req, {
+      action: 'view',
+      resourceType: 'attachment',
+      resourceIds: [attachment.id],
+      resourceOriginScope: attachment.originNetworkScope,
+    });
+    return true;
+  }
+
   filterAllowedPages<T extends Pick<Page, 'id' | 'originNetworkScope'>>(
     pages: T[],
     req: FastifyRequest,
