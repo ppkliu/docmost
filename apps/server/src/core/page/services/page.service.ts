@@ -770,10 +770,13 @@ export class PageService {
                 workspaceId: attachment.workspaceId,
                 pageId: newPageId,
                 spaceId: spaceId,
-                originIp: origin?.originIp,
-                originNetwork: origin?.originNetwork,
-                originNetworkScope: origin?.originNetworkScope,
-                originRecordedAt: origin?.originRecordedAt,
+                // Same bytes, same origin: the copy keeps the source attachment's
+                // label, not the duplicator's. Otherwise an office user copying an
+                // internal page gets a downloadable 'external' copy (2026-11-03).
+                originIp: attachment.originIp,
+                originNetwork: attachment.originNetwork,
+                originNetworkScope: attachment.originNetworkScope,
+                originRecordedAt: attachment.originRecordedAt,
               })
               .execute();
           } catch (err) {
