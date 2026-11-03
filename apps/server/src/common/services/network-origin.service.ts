@@ -320,6 +320,28 @@ export class NetworkOriginService {
     return true;
   }
 
+  /**
+   * True when a browser opening a blocked attachment directly (embedded PDF,
+   * new tab, pasted link; it asks for text/html) should get the readable
+   * notice page instead of the 403 JSON (design §12). Logged like any other
+   * block. Programmatic callers do not ask for text/html and keep the JSON.
+   */
+  shouldServeAttachmentNotice(
+    attachment: Pick<Attachment, 'id' | 'originNetworkScope'>,
+    req: FastifyRequest,
+  ): boolean {
+    const accept = String(req.headers?.accept ?? '');
+    if (!accept.includes('text/html')) return false;
+    if (this.isAllowed(attachment.originNetworkScope, req)) return false;
+    this.logBlocked(req, {
+      action: 'download',
+      resourceType: 'attachment',
+      resourceIds: [attachment.id],
+      resourceOriginScope: attachment.originNetworkScope,
+    });
+    return true;
+  }
+
   filterAllowedPages<T extends Pick<Page, 'id' | 'originNetworkScope'>>(
     pages: T[],
     req: FastifyRequest,

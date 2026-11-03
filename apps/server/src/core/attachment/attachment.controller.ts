@@ -26,6 +26,7 @@ import { AuthWorkspace } from '../../common/decorators/auth-workspace.decorator'
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { Attachment, User, Workspace } from '@docmost/db/types/entity.types';
 import { INTERNAL_IMAGE_PLACEHOLDER_SVG } from '../../common/services/internal-image-placeholder';
+import { renderInternalAttachmentNotice } from '../../common/services/internal-attachment-notice';
 import { StorageService } from '../../integrations/storage/storage.service';
 import {
   getAttachmentFolderPath,
@@ -212,6 +213,11 @@ export class AttachmentController {
       ) {
         return this.sendInternalImagePlaceholder(res);
       }
+      if (
+        this.networkOriginService.shouldServeAttachmentNotice(attachment, req)
+      ) {
+        return this.sendInternalAttachmentNotice(res, attachment);
+      }
       this.networkOriginService.assertCanDownloadAttachment(attachment, req);
     }
 
@@ -268,6 +274,11 @@ export class AttachmentController {
         this.networkOriginService.shouldServeImagePlaceholder(attachment, req)
       ) {
         return this.sendInternalImagePlaceholder(res);
+      }
+      if (
+        this.networkOriginService.shouldServeAttachmentNotice(attachment, req)
+      ) {
+        return this.sendInternalAttachmentNotice(res, attachment);
       }
       this.networkOriginService.assertCanDownloadAttachment(attachment, req);
     }
@@ -502,6 +513,25 @@ export class AttachmentController {
       'X-Network-Origin-Blocked': 'internal-image',
     });
     return res.send(INTERNAL_IMAGE_PLACEHOLDER_SVG);
+  }
+
+  /**
+   * Still a 403 so scripts, monitoring and the adapter keep treating it as a
+   * denial; the body is what the browser shows (design §12).
+   */
+  private sendInternalAttachmentNotice(
+    res: FastifyReply,
+    attachment: Attachment,
+  ) {
+    res.status(403);
+    res.headers({
+      'Content-Type': 'text/html; charset=utf-8',
+      'Cache-Control': 'private, no-store',
+      'Content-Security-Policy':
+        "default-src 'none'; style-src 'unsafe-inline'",
+      'X-Network-Origin-Blocked': 'internal-attachment',
+    });
+    return res.send(renderInternalAttachmentNotice(attachment.fileName));
   }
 
   private async sendFileResponse(
