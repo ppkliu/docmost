@@ -378,3 +378,28 @@ NETWORK_ORIGIN_PERMISSION_BLOCKED
 
 安全說明:原設計註解已載明此豁免「非安全邊界——可顯示即可複製」,故放寬圖片顯示範圍
 不改變資安模型;真正需要阻擋的敏感檔案應為非圖片附件,仍受 zone 規則保護。
+
+## 12. 內網圖片不再豁免、複製頁面的附件沿用原來源(2026-11-03)
+
+### 政策
+
+辦公網可以**看**內網頁面的文字,但不能下載內網的附件與圖片。編輯不改頁面的來源標記:頁面維持建立時的
+`origin_network_scope`;編輯時新上傳的附件與圖片各自依上傳當下的網段標記。
+
+### 圖片
+
+站點走純 HTTP,瀏覽器不送 `Sec-Fetch-*`(只在安全來源才送),所以「顯示放行、下載阻擋」(原 G3)做不到:
+顯示與下載是同一個請求。`isImageViewExempt()`(`network-origin.service.ts`,取代 controller 的
+`isImageEmbedRequest()`)改為:
+
+- `origin_network_scope = 'internal'` 的圖片**永遠不豁免**,辦公網看到破圖;
+- `external`、`mrdoc`、沒有標記的圖片維持 §11 的豁免(`DOCMOST_IMAGE_VIEW_IGNORE_NETWORK_ORIGIN=true`),
+  所以 MrDoc 遷移與舊頁面的圖片不會破圖;設 `false` 時仍只放行 `Sec-Fetch-Dest: image`。
+
+### 複製頁面
+
+`duplicatePage` 原本讓複本的附件取**複製者**的來源:辦公網複製內網頁面,複本附件變成 `external`,
+等於把內網檔案「洗」成可下載。現在複本附件沿用**來源附件**的 `origin_*` 欄位(同一份檔案,同一個來源)。
+複本頁面本身仍取複製者的來源:頁面文字本來就不受管控。
+
+過去已經被洗過的複本,用 wuji-adapter 的 `deploy/origin-inventory.sh duplicates` 從稽核記錄 `page.duplicated` 找出。
