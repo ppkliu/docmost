@@ -356,4 +356,42 @@ describe('NetworkOriginService', () => {
       ).toBe(false);
     });
   });
+
+  describe('shouldServeAttachmentNotice', () => {
+    const pdf = { id: 'a3', originNetworkScope: 'internal' } as any;
+    const html = { accept: 'text/html,application/xhtml+xml,*/*;q=0.8' };
+
+    it('serves the notice page when a browser opens an internal attachment from the office network', () => {
+      const { service } = makeService();
+
+      expect(
+        service.shouldServeAttachmentNotice(pdf, req('172.20.8.44', html)),
+      ).toBe(true);
+    });
+
+    it('keeps the 403 JSON for programmatic callers', () => {
+      const { service } = makeService();
+
+      expect(
+        service.shouldServeAttachmentNotice(
+          pdf,
+          req('172.20.8.44', { accept: '*/*' }),
+        ),
+      ).toBe(false);
+    });
+
+    it('serves the file itself when the zone allows it', () => {
+      const { service } = makeService();
+
+      expect(
+        service.shouldServeAttachmentNotice(pdf, req('100.1.2.3', html)),
+      ).toBe(false);
+      expect(
+        service.shouldServeAttachmentNotice(
+          { id: 'a4', originNetworkScope: 'external' } as any,
+          req('172.20.8.44', html),
+        ),
+      ).toBe(false);
+    });
+  });
 });
