@@ -14,6 +14,7 @@
   4. page import(pages/import、import-zip、import-files)納入來源記錄入口(§5)。
   5. MrDoc 遷移存量標記 `origin_network_scope='mrdoc'`，政策上等同內網專屬，日後可重分類(§4/§8)。
   6. 列印 PDF **不做專用攔截**，以檔案層防線為準(§5 printPDF；todo P4.7 關閉)。
+- 2026-11-10: §13 清點附件的所有取用入口(含 wuji-adapter 的預覽、OnlyOffice、下載審批、harness 下載)與已知限制。
 
 ## 1. 需求摘要
 
@@ -420,3 +421,62 @@ NETWORK_ORIGIN_PERMISSION_BLOCKED
 複本頁面本身仍取複製者的來源:頁面文字本來就不受管控。
 
 過去已經被洗過的複本,用 wuji-adapter 的 `deploy/origin-inventory.sh duplicates` 從稽核記錄 `page.duplicated` 找出。
+
+## 13. 附件取用入口清點(2026-11-10)
+
+結論:附件卡片上的「預覽」「嵌入為 PDF」「下載」三個按鈕,最後都打到 `GET /api/files/:fileId/:fileName`,
+由 §5「Attachment 下載」與 §12 的伺服器端規則把關。前端只負責把 403 轉成提示,沒有任何一個入口靠
+「藏按鈕」管控,所以繞過前端直接打網址也一樣被擋。
+
+### 判斷結果一覽
+
+| 請求的 zone | 附件 `internal` / `mrdoc` | `external` | 沒有標記 |
+|---|---|---|---|
+| internal | 放行 | 放行 | 放行 |
+| office | **擋** | 放行 | 依 `DOCMOST_UNKNOWN_ORIGIN_POLICY` |
+| unknown | 擋 | 擋 | 擋 |
+
+請求的 zone 由登入時寫進 session 的 zone 與當下 URL 的 Host(`WUJI_INTERNAL_IPS`)共同決定,兩者不一致取較嚴的
+(`getCurrentUserNetworkZone()`);換網址只能降級,不能升級。圖片的例外見 §11、§12。
+
+### 瀏覽器端入口
+
+| 按鈕 | 程式 | 實際請求 | office 打開內網附件時 |
+|---|---|---|---|
+| 下載 | `client/.../attachment/attachment-view.tsx` → `downloadWithNetworkOriginGuard`(`client/src/lib/network-origin.ts`) | `fetch('/api/files/…')` | 403,前端跳紅色提示 |
+| 嵌入為 PDF(只在可編輯時出現) | 同上 `handleEmbedAsPdf` | 改成 PDF 節點,以 iframe 載入 `/api/files/…` | 403 + §12 的提示頁 |
+| 預覽(眼睛) | wuji-adapter `inject/kb-preview.js`(不是 Docmost 原生) | 同源 `fetch('/api/files/…', {credentials:'same-origin'})`;PDF / 圖片 / 影音直接當 `src` | 403,預覽視窗顯示被網路來源擋下 |
+| 分享頁 | `GET /api/files/public/:fileId/:fileName?jwt=` | 與登入版同一套檢查 | 同上 |
+
+### 伺服器代取的旁路(wuji-adapter)
+
+以下三條由 adapter 用管理 Key 代為向 Docmost 取檔(`fetchFileWithKey`,`wuji-adapter/src/clients/docmostApi.mjs`),
+是最容易繞過 zone 的地方,逐條確認過:
+
+| 入口 | 有沒有先比對使用者的 zone | Docmost 實際判成 | 結果 |
+|---|---|---|---|
+| OnlyOffice 預覽 xlsx/xlsm(`/api/oo/config` → `/api/oo/file/:id`,`src/routes/onlyofficeApi.mjs`) | 沒有 | **office**:帶的 `hostHeader` 會被 fetch 忽略,Host 是 docker 內網名,不在 `WUJI_INTERNAL_IPS` | 非 `external` 的 xlsx 對所有人都取不到,不會外洩 |
+| 下載審批(`/api/download-apply`、`/api/download-approve/*`,`src/routes/downloadApprovalApi.mjs`) | 沒有 | office(同上) | 核准後仍取不到內網來源的檔案,不會外洩 |
+| harness 下載(`src/routes/harnessFiles.mjs`) | 有:`canDownload(originZone, networkZone)` | 只有請求確定來自內網 WUJI 時才帶 `internalHost`,讓 Docmost 判成 internal | 正確 |
+
+★ `fetchFileWithKey` 的 `hostHeader` 目前沒有效果,這正是前兩條安全的原因。**不要**為了讓內網使用者能預覽而
+把它改成 `getWithHost` 了事:OnlyOffice 與下載審批都沒有先比對使用者的 zone,真的生效會讓外網拿到內網附件。
+要改,先在 `/api/oo/config`(或審批發件端)判斷發起者的 zone,只有 internal 才帶 `internalHost`,照 harness 下載的做法。
+
+### 已知限制
+
+1. **內網使用者也不能用 OnlyOffice 預覽內網來源的 xlsx/xlsm**:上面的代取一律被判成 office,預覽會失敗;
+   直接下載正常。是功能限制,不是安全問題。
+2. **下載審批放不出內網來源的檔案**:理由同上。若流程期待「主管核准後外網也能下載內網檔」,目前做不到。
+3. **圖片例外**:`external`、`mrdoc`、沒有標記的圖片在頁面上照常顯示(顯示等於能存);`internal` 的圖片在
+   office 換成佔位圖(§12)。
+
+### 查某個附件的來源標記
+
+```sql
+SELECT id, file_name, origin_network_scope, origin_ip, origin_recorded_at
+  FROM attachments
+ WHERE file_name = '<檔名>' AND deleted_at IS NULL;
+```
+
+`internal` → office 擋;`external` → 內外網都能下載;空值 → 依 `DOCMOST_UNKNOWN_ORIGIN_POLICY`。
