@@ -38,6 +38,7 @@ export function applyApiKeyIdentity(auditContext: AuditContext, raw: any): void 
   if (raw?.authType !== 'api_key') return;
   auditContext.actorType = 'api_key';
   auditContext.apiKeyId = raw.apiKeyId ?? null;
+  auditContext.apiKeyName = raw.apiKeyName ?? null;
   auditContext.apiKeyOwnerId = raw.apiKeyOwnerId ?? null;
   auditContext.impersonatorId = raw.impersonatorId ?? null;
 }

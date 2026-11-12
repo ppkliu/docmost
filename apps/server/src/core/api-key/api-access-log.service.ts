@@ -1,10 +1,15 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectKysely } from 'nestjs-kysely';
 import { KyselyDB } from '@docmost/db/types/kysely.types';
+import {
+  clientIpOf,
+  forwardedForOf,
+} from '../../common/middlewares/audit-context.middleware';
 
 export type ApiAccessEntry = {
   workspaceId: string | null;
   apiKeyId: string | null;
+  apiKeyName: string | null;
   keyOwnerId: string | null;
   userId: string | null;
   impersonatorId: string | null;
@@ -14,6 +19,7 @@ export type ApiAccessEntry = {
   statusCode: number | null;
   durationMs: number | null;
   ipAddress: string | null;
+  clientIp: string | null;
   forwardedFor: string | null;
   userAgent: string | null;
   requestSummary: Record<string, unknown> | null;
@@ -71,9 +77,11 @@ export function buildApiAccessEntry(request: any, reply: any): ApiAccessEntry | 
   if (raw.authType !== 'api_key') return null;
   const url = String(request.url ?? raw.url ?? '');
   const elapsed = Number(reply?.elapsedTime);
+  const ipAddress = request.ip ? clip(String(request.ip), 100) : null;
   return {
     workspaceId: uuidOrNull(raw.workspaceId),
     apiKeyId: uuidOrNull(raw.apiKeyId),
+    apiKeyName: raw.apiKeyName ? clip(String(raw.apiKeyName), 200) : null,
     keyOwnerId: uuidOrNull(raw.apiKeyOwnerId),
     userId: uuidOrNull(request.user?.user?.id),
     impersonatorId: uuidOrNull(raw.impersonatorId),
@@ -83,8 +91,9 @@ export function buildApiAccessEntry(request: any, reply: any): ApiAccessEntry | 
     path: clip(url.split('?')[0], 500),
     statusCode: Number.isFinite(reply?.statusCode) ? reply.statusCode : null,
     durationMs: Number.isFinite(elapsed) ? Math.round(elapsed) : null,
-    ipAddress: request.ip ? clip(String(request.ip), 100) : null,
-    forwardedFor: headerText(request.headers?.['x-forwarded-for']),
+    ipAddress,
+    clientIp: clientIpOf(request.headers ?? {}, ipAddress),
+    forwardedFor: forwardedForOf(request.headers ?? {}),
     userAgent: headerText(request.headers?.['user-agent']),
     requestSummary: summarizeRequestBody(request.body),
   };
@@ -104,9 +113,12 @@ export class ApiAccessLogService {
         .values((eb) => ({
           workspaceId: entry.workspaceId,
           apiKeyId: entry.apiKeyId,
-          apiKeyName: entry.apiKeyId
-            ? eb.selectFrom('apiKeys').select('name').where('id', '=', entry.apiKeyId)
-            : null,
+          // known after validation; for rejected keys look the name up instead
+          apiKeyName:
+            entry.apiKeyName ??
+            (entry.apiKeyId
+              ? eb.selectFrom('apiKeys').select('name').where('id', '=', entry.apiKeyId)
+              : null),
           keyOwnerId: entry.keyOwnerId,
           userId: entry.userId,
           impersonatorId: entry.impersonatorId,
@@ -116,6 +128,7 @@ export class ApiAccessLogService {
           statusCode: entry.statusCode,
           durationMs: entry.durationMs,
           ipAddress: entry.ipAddress,
+          clientIp: entry.clientIp,
           forwardedFor: entry.forwardedFor,
           userAgent: entry.userAgent,
           requestSummary: entry.requestSummary ? JSON.stringify(entry.requestSummary) : null,

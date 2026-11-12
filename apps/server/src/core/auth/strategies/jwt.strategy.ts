@@ -111,7 +111,7 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
           strict: false,
         });
         const eeResult = await eeService.validateApiKey(payload);
-        return this.applyOnBehalfOf(req, eeResult);
+        return this.applyOnBehalfOf(req, this.takeApiKeyName(req, eeResult));
       }
     } catch (err) {
       this.logger.debug(
@@ -124,7 +124,19 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
       throw new UnauthorizedException('API Key module missing');
     }
     const result = await apiKeyService.validateApiKey(payload);
-    return this.applyOnBehalfOf(req, result);
+    return this.applyOnBehalfOf(req, this.takeApiKeyName(req, result));
+  }
+
+  /**
+   * Keeps the key's name on the request for audit / access-log attribution and
+   * hands passport only { user, workspace }, the shape every handler expects.
+   */
+  private takeApiKeyName(
+    req: any,
+    result: { user: any; workspace: any; apiKey?: { name?: string | null } },
+  ): { user: any; workspace: any } {
+    req.raw.apiKeyName = result?.apiKey?.name ?? null;
+    return { user: result.user, workspace: result.workspace };
   }
 
   /**

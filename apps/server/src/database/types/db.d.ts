@@ -69,6 +69,7 @@ export interface PageContentHashes {
 export interface ApiAccessLog {
   apiKeyId: string | null;
   apiKeyName: string | null;
+  clientIp: string | null;
   createdAt: Generated<Timestamp>;
   durationMs: number | null;
   forwardedFor: string | null;

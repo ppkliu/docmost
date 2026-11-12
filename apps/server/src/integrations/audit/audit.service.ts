@@ -15,7 +15,9 @@ export type AuditLogContext = {
   ipAddress?: string;
   userAgent?: string;
   forwardedFor?: string;
+  clientIp?: string;
   apiKeyId?: string;
+  apiKeyName?: string;
   apiKeyOwnerId?: string;
   impersonatorId?: string;
 };
@@ -29,7 +31,9 @@ export function contextMetadata(context: AuditLogContext): Record<string, string
   const out: Record<string, string> = {};
   if (context.userAgent) out.userAgent = context.userAgent;
   if (context.forwardedFor) out.forwardedFor = context.forwardedFor;
+  if (context.clientIp) out.clientIp = context.clientIp;
   if (context.apiKeyId) out.apiKeyId = context.apiKeyId;
+  if (context.apiKeyName) out.apiKeyName = context.apiKeyName;
   if (context.apiKeyOwnerId) out.apiKeyOwnerId = context.apiKeyOwnerId;
   if (context.impersonatorId) out.impersonatorId = context.impersonatorId;
   return out;
@@ -72,7 +76,9 @@ export class AuditService implements IAuditService {
       ipAddress: context.ipAddress ?? undefined,
       userAgent: context.userAgent ?? undefined,
       forwardedFor: context.forwardedFor ?? undefined,
+      clientIp: context.clientIp ?? undefined,
       apiKeyId: context.apiKeyId ?? undefined,
+      apiKeyName: context.apiKeyName ?? undefined,
       apiKeyOwnerId: context.apiKeyOwnerId ?? undefined,
       impersonatorId: context.impersonatorId ?? undefined,
     });

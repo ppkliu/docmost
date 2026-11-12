@@ -25,8 +25,12 @@ export async function up(db: Kysely<any>): Promise<void> {
     .addColumn('path', 'varchar', (col) => col.notNull())
     .addColumn('status_code', 'integer')
     .addColumn('duration_ms', 'integer')
-    // varchar, not inet: a malformed value must not cost the row
+    // varchar, not inet: a malformed value must not cost the row.
+    // ip_address = connecting peer (the WUJI proxy for /wiki/ traffic, which the
+    // zone logic keys on); client_ip = the end user behind it, from the chain the
+    // proxy claimed (unverified); forwarded_for = that whole chain.
     .addColumn('ip_address', 'varchar')
+    .addColumn('client_ip', 'varchar')
     .addColumn('forwarded_for', 'varchar')
     .addColumn('user_agent', 'varchar')
     // ids and roles from the body only; never content or secrets

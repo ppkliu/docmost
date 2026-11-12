@@ -112,7 +112,12 @@ export class ApiKeyService {
    */
   async validateApiKey(
     payload: JwtApiKeyPayload,
-  ): Promise<{ user: User; workspace: Workspace }> {
+  ): Promise<{
+    user: User;
+    workspace: Workspace;
+    // id + name only, for audit / access-log attribution; never the token
+    apiKey: { id: string; name: string | null };
+  }> {
     const apiKey = await this.apiKeyRepo.findActiveById(payload.apiKeyId);
     if (!apiKey || apiKey.workspaceId !== payload.workspaceId) {
       throw new UnauthorizedException('Invalid API key');
@@ -137,6 +142,6 @@ export class ApiKeyService {
     // best-effort audit of last usage; never block auth on this
     this.apiKeyRepo.updateLastUsed(apiKey.id).catch(() => undefined);
 
-    return { user, workspace };
+    return { user, workspace, apiKey: { id: apiKey.id, name: apiKey.name ?? null } };
   }
 }
