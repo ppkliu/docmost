@@ -14,6 +14,10 @@ import fastifyIp from 'fastify-ip';
 import { InternalLogFilter } from './common/logger/internal-log-filter';
 import { EnvironmentService } from './integrations/environment/environment.service';
 import { resolveFrameHeader } from './common/helpers';
+import {
+  ApiAccessLogService,
+  buildApiAccessEntry,
+} from './core/api-key/api-access-log.service';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestFastifyApplication>(
@@ -79,6 +83,18 @@ async function bootstrap() {
     .getInstance()
     .addHook('onRequest', (request, _reply, done) => {
       (request.raw as any).ip = request.ip;
+      done();
+    });
+
+  // Every API-key request (reads included) -> api_access_log: which key, whose,
+  // from where, which endpoint. Written after the response, never blocks it.
+  const apiAccessLog = app.get(ApiAccessLogService);
+  app
+    .getHttpAdapter()
+    .getInstance()
+    .addHook('onResponse', (request, reply, done) => {
+      const entry = buildApiAccessEntry(request, reply);
+      if (entry) void apiAccessLog.record(entry);
       done();
     });
 

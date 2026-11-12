@@ -66,6 +66,26 @@ export interface PageContentHashes {
   updatedAt: Generated<Timestamp>;
 }
 
+export interface ApiAccessLog {
+  apiKeyId: string | null;
+  apiKeyName: string | null;
+  createdAt: Generated<Timestamp>;
+  durationMs: number | null;
+  forwardedFor: string | null;
+  id: Generated<string>;
+  impersonatorId: string | null;
+  ipAddress: string | null;
+  keyOwnerId: string | null;
+  method: string;
+  onBehalfOf: string | null;
+  path: string;
+  requestSummary: Json | null;
+  statusCode: number | null;
+  userAgent: string | null;
+  userId: string | null;
+  workspaceId: string | null;
+}
+
 export interface ApiKeys {
   createdAt: Generated<Timestamp>;
   deletedAt: Timestamp | null;
@@ -638,6 +658,7 @@ export interface UserSessions {
 export interface DB {
   aiChats: AiChats;
   aiChatMessages: AiChatMessages;
+  apiAccessLog: ApiAccessLog;
   apiKeys: ApiKeys;
   attachments: Attachments;
   audit: Audit;
