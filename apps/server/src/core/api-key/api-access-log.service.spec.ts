@@ -50,16 +50,29 @@ describe('buildApiAccessEntry', () => {
 
   it('records key, owner, effective user, source and action', () => {
     const entry = buildApiAccessEntry(
-      request({ authType: 'api_key', apiKeyId: KEY, apiKeyOwnerId: OWNER, impersonatorId: OWNER, onBehalfOf: 'm@x.com' }),
+      request({ authType: 'api_key', apiKeyId: KEY, apiKeyName: 'fll_key', apiKeyOwnerId: OWNER, impersonatorId: OWNER, onBehalfOf: 'm@x.com' }),
       { statusCode: 200, elapsedTime: 12.6 },
     );
     expect(entry).toEqual({
-      workspaceId: WS, apiKeyId: KEY, keyOwnerId: OWNER, userId: USER,
+      workspaceId: WS, apiKeyId: KEY, apiKeyName: 'fll_key', keyOwnerId: OWNER, userId: USER,
       impersonatorId: OWNER, onBehalfOf: 'm@x.com',
       method: 'POST', path: '/api/spaces/members/add', statusCode: 200, durationMs: 13,
-      ipAddress: '10.1.2.3', forwardedFor: '10.1.2.3, 100.19.8.25', userAgent: 'python-requests/2.31',
+      ipAddress: '10.1.2.3', clientIp: '10.1.2.3', forwardedFor: '10.1.2.3, 100.19.8.25', userAgent: 'python-requests/2.31',
       requestSummary: { spaceId: USER, userIds: ['a'], role: 'writer' },
     });
+  });
+
+  it('prefers the chain the edge proxy passed as X-Forwarded-For-Claimed', () => {
+    const entry = buildApiAccessEntry(
+      request({ authType: 'api_key' }, {
+        headers: { 'x-forwarded-for': '100.19.8.25', 'x-forwarded-for-claimed': '10.20.30.40, 100.19.8.25' },
+      }),
+      { statusCode: 200 },
+    );
+    expect(entry?.forwardedFor).toBe('10.20.30.40, 100.19.8.25');
+    // the end user's IP is the leftmost claimed entry; ipAddress stays the proxy
+    expect(entry?.clientIp).toBe('10.20.30.40');
+    expect(entry?.ipAddress).toBe('10.1.2.3');
   });
 
   it('still records a rejected key (no user yet) and drops non-uuid ids', () => {
@@ -68,6 +81,7 @@ describe('buildApiAccessEntry', () => {
       { statusCode: 401 },
     );
     expect(entry?.apiKeyId).toBeNull();
+    expect(entry?.apiKeyName).toBeNull();
     expect(entry?.userId).toBeNull();
     expect(entry?.statusCode).toBe(401);
     expect(entry?.durationMs).toBeNull();

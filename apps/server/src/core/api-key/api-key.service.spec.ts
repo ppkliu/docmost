@@ -103,6 +103,7 @@ describe('ApiKeyService', () => {
     it('returns user + workspace for a valid key and tracks last use', async () => {
       apiKeyRepo.findActiveById.mockResolvedValue({
         id: 'key-1',
+        name: 'agent-upload',
         workspaceId,
         expiresAt: null,
       });
@@ -111,7 +112,7 @@ describe('ApiKeyService', () => {
 
       const result = await service.validateApiKey(payload);
 
-      expect(result).toEqual({ user, workspace });
+      expect(result).toEqual({ user, workspace, apiKey: { id: 'key-1', name: 'agent-upload' } });
       expect(apiKeyRepo.updateLastUsed).toHaveBeenCalledWith('key-1');
     });
 

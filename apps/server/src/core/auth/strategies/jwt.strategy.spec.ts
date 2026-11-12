@@ -147,3 +147,18 @@ describe('JwtStrategy API-key identity for audit / access log', () => {
     expect(req.raw.apiKeyId).toBe('key-1');
   });
 });
+
+describe('JwtStrategy API-key name', () => {
+  it('keeps the key name on the request and hands passport only user + workspace', async () => {
+    const result = { user: { id: 'admin-1', role: 'admin' }, workspace, apiKey: { id: 'key-1', name: 'fll_key' } };
+    const strategy = new JwtStrategy(
+      {} as any, {} as any, {} as any, {} as any,
+      { getAppSecret: () => 'test-secret' } as any,
+      { get: () => ({ validateApiKey: jest.fn().mockResolvedValue(result) }) } as any,
+    );
+    const req: any = makeReq();
+    const out = await (strategy as any).validateApiKey(req, { sub: 'admin-1', workspaceId: 'ws-1', apiKeyId: 'key-1', type: 'api_key' });
+    expect(req.raw.apiKeyName).toBe('fll_key');
+    expect(out).toEqual({ user: result.user, workspace });
+  });
+});
