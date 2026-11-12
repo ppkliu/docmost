@@ -30,7 +30,8 @@ export default function UserApiKeys() {
   const [workspace] = useAtom(workspaceAtom);
   const { isAdmin } = useUserRole();
   const mcpEnabled = workspace?.settings?.ai?.mcp === true;
-  const restrictToAdmins = workspace?.settings?.api?.restrictToAdmins === true;
+  // unset means restricted: members need an admin to turn this off (server: isApiRestrictedToAdmins)
+  const restrictToAdmins = workspace?.settings?.api?.restrictToAdmins !== false;
   const canCreate = !restrictToAdmins || isAdmin;
 
   const handleCreateSuccess = (response: IApiKey) => {

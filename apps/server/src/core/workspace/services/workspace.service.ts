@@ -403,7 +403,8 @@ export class WorkspaceService {
 
     await executeTx(this.db, async (trx) => {
       if (typeof updateWorkspaceDto.restrictApiToAdmins !== 'undefined') {
-        const prev = settingsBefore?.api?.restrictToAdmins ?? false;
+        // unset means restricted (see isApiRestrictedToAdmins)
+        const prev = settingsBefore?.api?.restrictToAdmins ?? true;
         if (prev !== updateWorkspaceDto.restrictApiToAdmins) {
           before.restrictApiToAdmins = prev;
           after.restrictApiToAdmins = updateWorkspaceDto.restrictApiToAdmins;

@@ -18,7 +18,8 @@ export default function RestrictApiToAdmins() {
   const { t } = useTranslation();
   const [workspace, setWorkspace] = useAtom(workspaceAtom);
   const [checked, setChecked] = useState(
-    workspace?.settings?.api?.restrictToAdmins === true,
+    // unset means restricted (server: isApiRestrictedToAdmins)
+    workspace?.settings?.api?.restrictToAdmins !== false,
   );
   const hasAccess = useHasFeature(Feature.API_KEYS);
   const upgradeLabel = useUpgradeLabel();

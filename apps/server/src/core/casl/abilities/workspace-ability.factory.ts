@@ -40,10 +40,14 @@ export default class WorkspaceAbilityFactory {
  * Workspace setting "only admins can create API keys" (settings.api.restrictToAdmins).
  * Enforced here, server-side: hiding the button in the client is not a control,
  * since a member can call POST /api/api-keys/create directly.
+ *
+ * Restricted unless an admin explicitly turned it off (false): a key carries its
+ * creator's full permissions with no scope, so members do not get one by default.
+ * The client mirrors this rule in user-api-keys.tsx and restrict-api-to-admins.tsx.
  */
 export function isApiRestrictedToAdmins(workspace?: Workspace | null): boolean {
   const settings = (workspace?.settings ?? {}) as { api?: { restrictToAdmins?: boolean } };
-  return settings.api?.restrictToAdmins === true;
+  return settings.api?.restrictToAdmins !== false;
 }
 
 function buildWorkspaceOwnerAbility() {
