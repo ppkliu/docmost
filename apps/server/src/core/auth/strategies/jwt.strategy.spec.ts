@@ -112,3 +112,38 @@ describe('JwtStrategy on-behalf-of (H1 attribution)', () => {
     ).rejects.toThrow(UnauthorizedException);
   });
 });
+
+describe('JwtStrategy API-key identity for audit / access log', () => {
+  it('records the key owner even without on-behalf-of', async () => {
+    const { strategy } = makeStrategy();
+    const req: any = makeReq();
+    await (strategy as any).applyOnBehalfOf(req, adminResult);
+    expect(req.raw.apiKeyOwnerId).toBe('admin-1');
+    expect(req.raw.impersonatorId).toBeUndefined();
+    expect(req.raw.onBehalfOf).toBeUndefined();
+  });
+
+  it('keeps the owner and the requested target when acting on behalf of someone', async () => {
+    const { strategy } = makeStrategy();
+    const req: any = makeReq('member@test.local');
+    await (strategy as any).applyOnBehalfOf(req, adminResult);
+    expect(req.raw.apiKeyOwnerId).toBe('admin-1');
+    expect(req.raw.impersonatorId).toBe('admin-1');
+    expect(req.raw.onBehalfOf).toBe('member@test.local');
+  });
+
+  it('marks the key id before validating, so rejected keys are still traceable', async () => {
+    const validateApiKey = jest.fn().mockRejectedValue(new UnauthorizedException('Invalid API key'));
+    const strategy = new JwtStrategy(
+      {} as any, {} as any, {} as any, {} as any,
+      { getAppSecret: () => 'test-secret' } as any,
+      { get: () => ({ validateApiKey }) } as any,
+    );
+    const req: any = makeReq();
+    await expect(
+      (strategy as any).validateApiKey(req, { sub: 'u', workspaceId: 'ws-1', apiKeyId: 'key-1', type: 'api_key' }),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
+    expect(req.raw.authType).toBe('api_key');
+    expect(req.raw.apiKeyId).toBe('key-1');
+  });
+});
