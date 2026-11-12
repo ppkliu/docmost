@@ -9,6 +9,7 @@ import {
 } from '@nestjs/common';
 import { ApiKeyService } from './api-key.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { RejectApiKeyAuthGuard } from './reject-api-key-auth.guard';
 import { AuthUser } from '../../common/decorators/auth-user.decorator';
 import { AuthWorkspace } from '../../common/decorators/auth-workspace.decorator';
 import { User, Workspace } from '@docmost/db/types/entity.types';
@@ -24,7 +25,7 @@ import {
   WorkspaceCaslSubject,
 } from '../casl/interfaces/workspace-ability.type';
 
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RejectApiKeyAuthGuard)
 @Controller('api-keys')
 export class ApiKeyController {
   constructor(

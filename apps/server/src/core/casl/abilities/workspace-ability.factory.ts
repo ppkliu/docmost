@@ -28,11 +28,22 @@ export default class WorkspaceAbilityFactory {
       case UserRole.MEMBER:
         return buildWorkspaceMemberAbility(
           this.environmentService.getSpaceMemberCreateEnabled(),
+          !isApiRestrictedToAdmins(workspace),
         );
       default:
         throw new NotFoundException('Workspace permissions not found');
     }
   }
+}
+
+/**
+ * Workspace setting "only admins can create API keys" (settings.api.restrictToAdmins).
+ * Enforced here, server-side: hiding the button in the client is not a control,
+ * since a member can call POST /api/api-keys/create directly.
+ */
+export function isApiRestrictedToAdmins(workspace?: Workspace | null): boolean {
+  const settings = (workspace?.settings ?? {}) as { api?: { restrictToAdmins?: boolean } };
+  return settings.api?.restrictToAdmins === true;
 }
 
 function buildWorkspaceOwnerAbility() {
@@ -67,7 +78,10 @@ function buildWorkspaceAdminAbility() {
   return build();
 }
 
-function buildWorkspaceMemberAbility(canCreateSpace = false) {
+function buildWorkspaceMemberAbility(
+  canCreateSpace = false,
+  canCreateApiKey = true,
+) {
   const { can, build } = new AbilityBuilder<MongoAbility<IWorkspaceAbility>>(
     createMongoAbility,
   );
@@ -84,7 +98,9 @@ function buildWorkspaceMemberAbility(canCreateSpace = false) {
   }
   can(WorkspaceCaslAction.Read, WorkspaceCaslSubject.Group);
   can(WorkspaceCaslAction.Manage, WorkspaceCaslSubject.Attachment);
-  can(WorkspaceCaslAction.Create, WorkspaceCaslSubject.API);
+  if (canCreateApiKey) {
+    can(WorkspaceCaslAction.Create, WorkspaceCaslSubject.API);
+  }
 
   return build();
 }
