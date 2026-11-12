@@ -14,7 +14,26 @@ export type AuditLogContext = {
   actorType?: ActorType;
   ipAddress?: string;
   userAgent?: string;
+  forwardedFor?: string;
+  apiKeyId?: string;
+  apiKeyOwnerId?: string;
+  impersonatorId?: string;
 };
+
+/**
+ * Request facts stored next to every audit row's own metadata. API-key fields
+ * answer "which key, whose key" for automated actions; forwardedFor keeps the
+ * proxy chain behind ip_address.
+ */
+export function contextMetadata(context: AuditLogContext): Record<string, string> {
+  const out: Record<string, string> = {};
+  if (context.userAgent) out.userAgent = context.userAgent;
+  if (context.forwardedFor) out.forwardedFor = context.forwardedFor;
+  if (context.apiKeyId) out.apiKeyId = context.apiKeyId;
+  if (context.apiKeyOwnerId) out.apiKeyOwnerId = context.apiKeyOwnerId;
+  if (context.impersonatorId) out.impersonatorId = context.impersonatorId;
+  return out;
+}
 
 export type IAuditService = {
   log(payload: AuditLogPayload): void | Promise<void>;
@@ -52,6 +71,10 @@ export class AuditService implements IAuditService {
       actorType: context.actorType,
       ipAddress: context.ipAddress ?? undefined,
       userAgent: context.userAgent ?? undefined,
+      forwardedFor: context.forwardedFor ?? undefined,
+      apiKeyId: context.apiKeyId ?? undefined,
+      apiKeyOwnerId: context.apiKeyOwnerId ?? undefined,
+      impersonatorId: context.impersonatorId ?? undefined,
     });
   }
 
@@ -72,7 +95,7 @@ export class AuditService implements IAuditService {
         changes: payload.changes ?? null,
         metadata: {
           ...(payload.metadata ?? {}),
-          ...(context.userAgent ? { userAgent: context.userAgent } : {}),
+          ...contextMetadata(context),
         },
         ipAddress: context.ipAddress ?? null,
       })
@@ -98,7 +121,7 @@ export class AuditService implements IAuditService {
           changes: payload.changes ?? null,
           metadata: {
             ...(payload.metadata ?? {}),
-            ...(context.userAgent ? { userAgent: context.userAgent } : {}),
+            ...contextMetadata(context),
           },
           ipAddress: context.ipAddress ?? null,
         })),

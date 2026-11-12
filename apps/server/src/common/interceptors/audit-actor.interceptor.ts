@@ -20,10 +20,24 @@ export class AuditActorInterceptor implements NestInterceptor {
       const auditContext = this.cls.get<AuditContext>(AUDIT_CONTEXT_KEY);
       if (auditContext) {
         auditContext.actorId = user.id;
+        applyApiKeyIdentity(auditContext, request?.raw);
         this.cls.set(AUDIT_CONTEXT_KEY, auditContext);
       }
     }
 
     return next.handle();
   }
+}
+
+/**
+ * API-key requests are recorded as actorType 'api_key' with the key's id and
+ * owner. actorId stays the effective user (the on-behalf-of target when that
+ * header was used); impersonatorId is then the key owner who delegated.
+ */
+export function applyApiKeyIdentity(auditContext: AuditContext, raw: any): void {
+  if (raw?.authType !== 'api_key') return;
+  auditContext.actorType = 'api_key';
+  auditContext.apiKeyId = raw.apiKeyId ?? null;
+  auditContext.apiKeyOwnerId = raw.apiKeyOwnerId ?? null;
+  auditContext.impersonatorId = raw.impersonatorId ?? null;
 }

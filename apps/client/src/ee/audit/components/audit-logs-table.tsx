@@ -271,6 +271,14 @@ export default function AuditLogsTable({
                               <Text fz="xs" c="dimmed">
                                 {entry.actor.email}
                               </Text>
+                              {entry.actorType === "api_key" && (
+                                <Text fz="xs" c="orange" lineClamp={1}>
+                                  {t("API key")}
+                                  {entry.metadata?.apiKeyId
+                                    ? ` ${String(entry.metadata.apiKeyId).slice(0, 8)}`
+                                    : ""}
+                                </Text>
+                              )}
                             </div>
                           </Group>
                         ) : (

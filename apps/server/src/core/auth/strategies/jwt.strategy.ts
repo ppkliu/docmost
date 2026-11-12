@@ -97,6 +97,10 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     // Lets handlers apply stricter rules to API-key callers (agents, scripts)
     // than to browser sessions — see PageDeleteGuardService.
     req.raw.authType = 'api_key';
+    // Recorded before validation so rejected keys (revoked, expired) still show
+    // up in the API access log with their id. Read by AuditActorInterceptor
+    // (audit metadata) and the onResponse access-log hook in main.ts.
+    req.raw.apiKeyId = payload.apiKeyId ?? null;
     // Prefer the enterprise API key service when bundled, otherwise fall back
     // to the open-source implementation (core ApiKeyModule).
     try {
@@ -135,11 +139,14 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     const email = String(
       req?.raw?.headers?.[ON_BEHALF_OF_HEADER] ?? '',
     ).trim();
+    const owner = result.user;
+    // The key's owner, kept even when the request acts on behalf of someone else
+    req.raw.apiKeyOwnerId = owner?.id ?? null;
     if (!email) {
       return result;
     }
+    req.raw.onBehalfOf = email;
 
-    const owner = result.user;
     if (owner.role !== UserRole.ADMIN && owner.role !== UserRole.OWNER) {
       throw new UnauthorizedException(
         'This API key cannot act on behalf of other users',
