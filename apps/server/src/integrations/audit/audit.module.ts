@@ -1,6 +1,7 @@
 import { Global, Module } from '@nestjs/common';
 import { AUDIT_SERVICE, AuditService } from './audit.service';
 import { AuditController } from './audit.controller';
+import { LogRetentionService } from './log-retention.service';
 import { CaslModule } from '../../core/casl/casl.module';
 
 @Global()
@@ -12,6 +13,7 @@ import { CaslModule } from '../../core/casl/casl.module';
       provide: AUDIT_SERVICE,
       useClass: AuditService,
     },
+    LogRetentionService,
   ],
   exports: [AUDIT_SERVICE],
 })

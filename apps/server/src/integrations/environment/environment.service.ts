@@ -480,6 +480,16 @@ export class EnvironmentService {
     return policy === 'deny' ? 'deny' : 'allow';
   }
 
+  /**
+   * Days to keep api_access_log rows (one row per API-key request, ~850 bytes
+   * each). 0 keeps them forever. Unset or invalid falls back to 180.
+   */
+  getApiAccessLogRetentionDays(): number {
+    const raw = this.configService.get<string>('API_ACCESS_LOG_RETENTION_DAYS', '180');
+    const days = Number.parseInt(String(raw).trim(), 10);
+    return Number.isFinite(days) && days >= 0 ? days : 180;
+  }
+
   getEntranceHeaderRequired(): boolean {
     return (
       this.configService
